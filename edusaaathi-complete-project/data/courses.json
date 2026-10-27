@@ -1,0 +1,122 @@
+[
+  {
+    "id": "course-bcom",
+    "slug": "b-com",
+    "name": "B.Com",
+    "shortDescription": "Build a grounding in commerce, accounting and business fundamentals.",
+    "description": "The Bachelor of Commerce is an undergraduate course covering themes across commerce, accounting and business. Subjects and learning pathways vary, making it helpful to compare the structure and requirements of individual programmes.",
+    "duration": "Typically 3 years",
+    "eligibility": "Usually 10+2 from a recognised board. Subject and percentage requirements vary by institution.",
+    "fees": null,
+    "highlights": [
+      "Explore commerce, accounting and business fundamentals",
+      "Compare general and specialised programme options",
+      "Understand the admission requirements for each institution"
+    ],
+    "admissionInfo": "Admission criteria and application windows are decided by each institution. Check the current prospectus and official admissions information for the course you are considering.",
+    "image": null,
+    "imageAlt": null,
+    "published": true,
+    "updatedAt": "2026-10-09T00:00:00.000Z"
+  },
+  {
+    "id": "course-btech",
+    "slug": "b-tech",
+    "name": "B.Tech",
+    "shortDescription": "Study engineering principles through a chosen technical discipline.",
+    "description": "The Bachelor of Technology is an undergraduate engineering degree with branches spanning many technical disciplines. Students can compare subject areas, learning formats and entry requirements to identify options that suit their interests.",
+    "duration": "Typically 4 years",
+    "eligibility": "Usually 10+2 with Physics and Mathematics; subject, entrance and percentage requirements vary by institution.",
+    "fees": null,
+    "highlights": [
+      "Explore engineering branches and their subject focus",
+      "Understand entrance routes and institution-specific eligibility",
+      "Compare programme details before shortlisting options"
+    ],
+    "admissionInfo": "Entry may involve national, state or institution-level entrance routes. The relevant subjects, cut-offs and application windows vary. Always confirm current information with the institution and official exam sources.",
+    "image": null,
+    "imageAlt": null,
+    "published": true,
+    "updatedAt": "2026-10-09T00:00:00.000Z"
+  },
+  {
+    "id": "course-bba",
+    "slug": "bba",
+    "name": "BBA",
+    "shortDescription": "An introduction to business, management and organisational thinking.",
+    "description": "The Bachelor of Business Administration introduces students to core ideas in business and management. It offers a broad view of how organisations work, while giving students room to explore areas such as marketing, finance and operations.",
+    "duration": "Typically 3 years",
+    "eligibility": "Usually 10+2 from a recognised board. Subject and percentage requirements vary by institution.",
+    "fees": null,
+    "highlights": [
+      "Explore the foundations of management and business",
+      "Build an understanding of marketing, finance and operations",
+      "Review specialisations and admission routes before applying"
+    ],
+    "admissionInfo": "Admission routes and criteria are set by each institution and may change each intake. Check current dates and requirements with the institution before applying.",
+    "image": null,
+    "imageAlt": null,
+    "published": true,
+    "updatedAt": "2026-10-09T00:00:00.000Z"
+  },
+  {
+    "id": "course-bca",
+    "slug": "bca",
+    "name": "BCA",
+    "shortDescription": "Build a foundation in computing, software and digital applications.",
+    "description": "The Bachelor of Computer Applications is an undergraduate course focused on computing concepts and their practical use. It can be a starting point for students curious about software, systems and the wider technology landscape.",
+    "duration": "Typically 3 years",
+    "eligibility": "Usually 10+2 from a recognised board. Subject and percentage requirements vary by institution.",
+    "fees": null,
+    "highlights": [
+      "Explore programming and application development fundamentals",
+      "Build familiarity with databases, systems and web technologies",
+      "Compare subject combinations and admission requirements"
+    ],
+    "admissionInfo": "Admission routes, entrance requirements and application windows differ between institutions. Confirm the current criteria directly with the institution you are considering.",
+    "image": null,
+    "imageAlt": null,
+    "published": true,
+    "updatedAt": "2026-10-09T00:00:00.000Z"
+  },
+  {
+    "id": "course-mba",
+    "slug": "mba",
+    "name": "MBA",
+    "shortDescription": "Explore postgraduate study across business and management disciplines.",
+    "description": "A Master of Business Administration is a postgraduate programme that brings together management concepts and applied business learning. Course structure, specialisations and selection processes can vary considerably across institutions.",
+    "duration": "Typically 2 years",
+    "eligibility": "A recognised bachelor's degree is commonly required. Entrance test and other criteria vary by institution.",
+    "fees": null,
+    "highlights": [
+      "Compare specialisations, formats and programme structures",
+      "Understand the entrance tests and selection stages that may apply",
+      "Review fees and admission timelines with each institution"
+    ],
+    "admissionInfo": "Many institutions use entrance tests and additional selection stages, but requirements are not uniform. Verify the current process, deadlines and eligibility with each institution.",
+    "image": null,
+    "imageAlt": null,
+    "published": true,
+    "updatedAt": "2026-10-09T00:00:00.000Z"
+  },
+  {
+    "id": "course-mca",
+    "slug": "mca",
+    "name": "MCA",
+    "shortDescription": "Go deeper into computing through postgraduate study and application.",
+    "description": "The Master of Computer Applications is a postgraduate course for further study in computing and software applications. Programme formats and subject requirements differ, so it is useful to review each institution's current details.",
+    "duration": "Typically 2 years",
+    "eligibility": "A recognised bachelor's degree is generally required; mathematics and entrance requirements vary by institution.",
+    "fees": null,
+    "highlights": [
+      "Explore advanced computing and software application topics",
+      "Compare entry requirements and course formats",
+      "Review institution-specific admission and fee information"
+    ],
+    "admissionInfo": "Eligibility, entrance routes and programme length can differ by institution. Confirm requirements for the current intake before making an application decision.",
+    "image": null,
+    "imageAlt": null,
+    "published": true,
+    "updatedAt": "2026-10-09T00:00:00.000Z"
+  }
+]

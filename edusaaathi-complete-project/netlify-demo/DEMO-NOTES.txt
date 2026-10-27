@@ -1,0 +1,9 @@
+Edusaaathi — Netlify Drop Demo
+
+To publish: extract the ZIP, then drag the `netlify-demo` folder to Netlify Drop.
+
+Included: homepage, course list, six sample course guides, FAQ accordions, privacy and terms pages, custom 404, local styling, the education-globe hero and student-study counselling backgrounds, self-hosted Manrope font, and local GSAP/ScrollTrigger/Lenis assets.
+
+Demo-only differences: course links work; the mobile menu works; the enquiry dialog opens from its buttons. Submitting the enquiry form displays a clear demo notice and does not save personal data. The admin dashboard and API routes are not part of this static export. Use the full Next.js source project for the later API-connected implementation.
+
+Source project files remain in the parent folder. Do not collect real enquiries with this static demo.
