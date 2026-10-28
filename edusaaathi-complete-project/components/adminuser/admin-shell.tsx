@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { localDateString, getConsultantName } from "@/lib/adminuser/mock-data";
 import { ADMINISTRATOR_NAME } from "@/lib/adminuser/mock-data";
@@ -104,7 +105,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className={`${styles.sidebarScrim} ${mobileOpen ? styles.sidebarScrimVisible : ""}`} onClick={() => setMobileOpen(false)} aria-hidden="true" />
       <aside id="admin-navigation" className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ""} ${mobileOpen ? styles.sidebarMobileOpen : ""}`} aria-label="Admin navigation">
         <div className={styles.brandRow}>
-          <Link href="/adminuser" className={styles.brand} aria-label="Edusaaathi admin workspace home"><span className={styles.brandMark}>E</span><span className={styles.brandCopy}><strong>Edusaaathi</strong><small>ADMIN WORKSPACE</small></span></Link>
+          <Link href="/adminuser" className={styles.brand} aria-label="Edusaaathi admin workspace home">
+            <span className={styles.brandMark} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "3px" }}>
+              <Image src="/logo.png" alt="Edusaaathi" width={30} height={30} style={{ objectFit: "contain" }} priority />
+            </span>
+            <span className={styles.brandCopy}><strong>Edusaaathi</strong><small>ADMIN WORKSPACE</small></span>
+          </Link>
           <button className={styles.sidebarClose} type="button" onClick={() => setMobileOpen(false)} aria-label="Close navigation"><AdminIcon name="close" /></button>
         </div>
         <nav className={styles.sideNav} aria-label="Admin sections">

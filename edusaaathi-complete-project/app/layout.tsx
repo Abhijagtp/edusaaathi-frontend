@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — Find the Right Course`,
     description: SITE_DESCRIPTION,
   },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { AdminIcon, type AdminIconName } from "@/components/adminuser/admin-icon";
 import { useConsultantPortal } from "./consultant-provider";
@@ -71,7 +72,9 @@ export function ConsultantShell({ children }: { children: React.ReactNode }) {
       <aside id="consultant-navigation" className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ""} ${mobileOpen ? styles.sidebarMobileOpen : ""}`} aria-label="Consultant navigation">
         <div className={styles.brandRow}>
           <Link href="/consultant" className={styles.brand} aria-label="Edusaaathi consultant dashboard">
-            <span className={styles.brandMark}>E</span>
+            <span className={styles.brandMark} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "3px" }}>
+              <Image src="/logo.png" alt="Edusaaathi" width={30} height={30} style={{ objectFit: "contain" }} priority />
+            </span>
             <span className={styles.brandCopy}><strong>Edusaaathi</strong><small>CONSULTANT PORTAL</small></span>
           </Link>
           <button type="button" className={styles.mobileClose} onClick={() => setMobileOpen(false)} aria-label="Close navigation"><AdminIcon name="close" /></button>

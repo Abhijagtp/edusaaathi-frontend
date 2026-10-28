@@ -39,7 +39,7 @@ export function Hero() {
     <section className="hero-section page-wrap" ref={rootRef} aria-labelledby="hero-title">
       <HeroBackdrop />
       <div className="hero-copy">
-        <p className="hero-eyebrow"><span className="hero-eyebrow__mark"><SparkIcon /></span> YOUR NEXT STEP STARTS HERE</p>
+        <p className="hero-eyebrow"><span className="hero-eyebrow__mark"><SparkIcon /></span> YOUR EDUCATION PARTNER</p>
         <h1 className="hero-title" id="hero-title">
           <span className="hero-title-line">Find the <em>Right Course<span className="hero-underline" />.</em></span>
           <span className="hero-title-line">Build your <em className="hero-future">Future.</em></span>
