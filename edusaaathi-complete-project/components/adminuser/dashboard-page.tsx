@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import type { Activity, Lead } from "@/lib/adminuser/types";
-import { getConsultantName, localDateString } from "@/lib/adminuser/mock-data";
-import { formatDate, formatTime, percent } from "@/lib/adminuser/format";
+import { localDateString } from "@/lib/adminuser/mock-data";
+import { formatDate, percent } from "@/lib/adminuser/format";
 import { useAdminData } from "./admin-data-provider";
-import { AdminButton, Avatar, Badge, EmptyState, PageHeading, Panel, StatCard } from "./admin-ui";
+import { Avatar, Badge, EmptyState, PageHeading, Panel, StatCard } from "./admin-ui";
 import { AdminIcon } from "./admin-icon";
 import { HorizontalBars, LeadTrendChart, SourceDonut } from "./admin-charts";
 import styles from "./admin.module.css";
@@ -22,19 +22,24 @@ function trendPoints(leads: Lead[]) {
 }
 
 function ActivityIcon({ type }: { type: Activity["type"] }) {
-  const icon = type === "lead-created" ? "plus" : type === "status-changed" ? "check-circle" : type === "assigned" ? "users" : type === "follow-up" ? "calendar" : type === "note-added" ? "note" : type === "settings" ? "settings" : type === "course" ? "file-text" : "referral";
+  const icon = type === "lead-created" ? "plus" : type === "status-changed" ? "check-circle" : type === "assigned" ? "users" : type === "note-added" ? "note" : type === "settings" ? "settings" : type === "course" ? "file-text" : "referral";
   return <span className={`${styles.activityIcon} ${styles[`activityIcon${type.replace(/[^a-z]/g, "")}`]}`}><AdminIcon name={icon} size={14} /></span>;
 }
 
 export function DashboardPage() {
-  const { leads, consultants, followUps, activities, hydrated } = useAdminData();
-  const today = localDateString();
+  const { leads, consultants, activities, hydrated } = useAdminData();
   const newLeads = leads.filter((lead) => lead.status === "New").length;
   const contacted = leads.filter((lead) => lead.status === "Contacted").length;
+  const inProgress = leads.filter((lead) => lead.status === "In progress").length;
   const converted = leads.filter((lead) => lead.status === "Converted").length;
-  const dueFollowUps = followUps.filter((item) => item.status === "Pending" && item.date <= today).length;
-  const overdue = followUps.filter((item) => item.status === "Pending" && item.date < today).length;
-  const pendingFollowUps = [...followUps].filter((item) => item.status === "Pending").sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).slice(0, 5);
+  const totalNotes = leads.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0);
+
+  // Extract all notes sorted by recent
+  const allLeadNotes = leads
+    .flatMap((lead) => (lead.notes || []).map((n) => ({ ...n, leadId: lead.id, studentName: lead.studentName, course: lead.course })))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 5);
+
   const sourceData = [
     { label: "Website", value: leads.filter((lead) => lead.source === "Website").length, color: "#5146DC" },
     { label: "Consultant referral", value: leads.filter((lead) => lead.source === "Consultant referral").length, color: "#16A36A" },
@@ -44,7 +49,7 @@ export function DashboardPage() {
   const statusData = [
     { label: "New", value: newLeads, color: "#5146DC" },
     { label: "Contacted", value: contacted, color: "#1485C7" },
-    { label: "Follow-up", value: leads.filter((lead) => lead.status === "Follow-up").length, color: "#D97706" },
+    { label: "In progress", value: inProgress, color: "#D97706" },
     { label: "Converted", value: converted, color: "#16A36A" },
     { label: "Lost", value: leads.filter((lead) => lead.status === "Lost").length, color: "#DC4C4C" },
   ];
@@ -58,12 +63,12 @@ export function DashboardPage() {
 
   return (
     <div className={styles.pageContent}>
-      <PageHeading eyebrow="OVERVIEW" title="Welcome back, Ananya" description="Here’s your team’s lead activity and next steps at a glance." actions={<Link href="/adminuser/leads" className={styles.textLink}>View all leads <AdminIcon name="arrow-right" size={15} /></Link>} />
+      <PageHeading eyebrow="OVERVIEW" title="Welcome back, Ananya" description="Here’s your team’s lead activity and counseling notes at a glance." actions={<Link href="/adminuser/leads" className={styles.textLink}>View all leads <AdminIcon name="arrow-right" size={15} /></Link>} />
       <div className={styles.statsGrid}>
         <StatCard label="Total leads" value={leads.length} helper="All sources" icon="users" tone="indigo" />
         <StatCard label="New leads" value={newLeads} helper="Awaiting first contact" icon="sparkle" tone="violet" />
         <StatCard label="Contacted" value={contacted} helper="Conversation started" icon="phone" tone="blue" />
-        <StatCard label="Follow-ups due" value={dueFollowUps} helper={overdue ? `${overdue} overdue` : "Due today"} icon="calendar" tone="amber" />
+        <StatCard label="Counselor Notes" value={totalNotes} helper="Logged on leads" icon="note" tone="amber" />
         <StatCard label="Converted" value={converted} helper="Marked converted" icon="check-circle" tone="green" />
         <StatCard label="Conversion rate" value={percent(converted, leads.length)} helper="Converted ÷ total leads" icon="target" tone="rose" />
       </div>
@@ -90,15 +95,32 @@ export function DashboardPage() {
         <Panel title="Recent leads" subtitle="Most recently created" action={<Link href="/adminuser/leads" className={styles.smallTextLink}>See all</Link>}>
           {hydrated && recentLeads.length ? <div className={styles.recentLeadList}>{recentLeads.slice(0, 5).map((lead) => <Link href={`/adminuser/leads/${lead.id}`} className={styles.recentLeadRow} key={lead.id}><Avatar name={lead.studentName} size="sm" /><span className={styles.recentLeadInfo}><strong>{lead.studentName}</strong><small>{lead.course} · {lead.source}</small></span><Badge>{lead.status}</Badge><time>{formatDate(lead.createdAt, { day: "numeric", month: "short" })}</time></Link>)}</div> : <EmptyState title="No leads yet" icon="users" />}
         </Panel>
-        <Panel title="Follow-ups" subtitle="Upcoming and overdue" action={<Link href="/adminuser/follow-ups" className={styles.smallTextLink}>Manage</Link>}>
-          {pendingFollowUps.length ? <div className={styles.followUpList}>{pendingFollowUps.map((item) => { const lead = leads.find((entry) => entry.id === item.leadId); const isLate = item.date < today; return <Link className={styles.followUpPreview} href={`/adminuser/leads/${item.leadId}`} key={item.id}><span className={`${styles.followUpDateMark} ${isLate ? styles.followUpDateLate : ""}`}><strong>{formatDate(item.date, { day: "numeric" })}</strong><small>{formatDate(item.date, { month: "short" })}</small></span><span className={styles.followUpPreviewInfo}><strong>{lead?.studentName ?? "Student"}</strong><small>{item.notes}</small><small>{getConsultantName(consultants, item.consultantId)} · {formatTime(item.time)}</small></span><Badge>{isLate ? "Overdue" : item.date === today ? "Due today" : "Upcoming"}</Badge></Link>; })}</div> : <EmptyState title="No pending follow-ups" description="You're all caught up." icon="calendar" />}
+        <Panel title="Recent Lead Notes" subtitle="Latest counselor interactions logged" action={<Link href="/adminuser/leads" className={styles.smallTextLink}>View leads</Link>}>
+          {allLeadNotes.length ? (
+            <div className={styles.notesList}>
+              {allLeadNotes.map((item) => (
+                <Link href={`/adminuser/leads/${item.leadId}`} key={item.id} style={{ textDecoration: "none", color: "inherit" }}>
+                  <article className={styles.noteCard} style={{ cursor: "pointer" }}>
+                    <span className={styles.noteIcon}><AdminIcon name="note" size={15} /></span>
+                    <div>
+                      <strong style={{ fontSize: 13, color: "#0f172a" }}>{item.studentName} <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12 }}>({item.course})</span></strong>
+                      <p style={{ margin: "2px 0 3px", fontSize: 12.5, color: "#334155" }}>{item.text}</p>
+                      <small style={{ color: "#94a3b8", fontSize: 11 }}>{item.author} · {formatDate(item.createdAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small>
+                    </div>
+                  </article>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="No counselor notes yet" description="Click on any lead in the table to log consultation notes." icon="note" />
+          )}
         </Panel>
       </div>
 
       <Panel title="Recent activity" subtitle="Latest updates across leads and referrals" className={styles.activityPanel}>
         {recentActivity.length ? <div className={styles.activityTimeline}>{recentActivity.map((item) => <div className={styles.activityItem} key={item.id}><ActivityIcon type={item.type} /><div><strong>{item.title}</strong><p>{item.description}</p><small>{item.actor} · {formatDate(item.createdAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div>{item.leadId ? <Link href={`/adminuser/leads/${item.leadId}`} aria-label="Open related lead"><AdminIcon name="arrow-up-right" size={15} /></Link> : null}</div>)}</div> : <EmptyState title="No recent activity" icon="sparkle" />}
       </Panel>
-      <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={15} /> All metrics use illustrative sample data. Connect the Django API for live reporting.</p>
+      <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={15} /> Connected to Django REST Framework &amp; Neon PostgreSQL. Synchronized in real time.</p>
     </div>
   );
 }

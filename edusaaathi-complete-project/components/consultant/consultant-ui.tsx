@@ -19,17 +19,13 @@ export function MetricCard({ label, value, note, icon, tone = "indigo" }: { labe
 const statusClasses: Record<ConsultantLeadStatus, string> = {
   New: "statusNew",
   Contacted: "statusContacted",
-  "Follow-up": "statusFollowUp",
+  "In progress": "statusFollowUp",
   Converted: "statusConverted",
   Lost: "statusLost",
 };
 
 export function StatusBadge({ status, dot = true }: { status: ConsultantLeadStatus; dot?: boolean }) {
   return <span className={`${styles.statusBadge} ${styles[statusClasses[status]]}`}>{dot ? <i /> : null}{status}</span>;
-}
-
-export function FollowUpBadge({ completed }: { completed: boolean }) {
-  return <span className={`${styles.followupStatusBadge} ${completed ? styles.followupStatusComplete : styles.followupStatusPending}`}>{completed ? "Completed" : "Pending"}</span>;
 }
 
 export function OutcomeBadge({ status }: { status: ConsultantLeadStatus }) {

@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { downloadCsvFile } from "@/lib/adminuser/mock-data";
-import { formatDate, formatTime } from "@/lib/adminuser/format";
+import { formatDate } from "@/lib/adminuser/format";
 import { getConsultantPhoneHref, getConsultantWhatsAppHref, getMyLeads } from "@/lib/consultant/mock-service";
 import { CONSULTANT_LEAD_SOURCES, CONSULTANT_LEAD_STATUSES, type ConsultantLead, type ConsultantLeadStatus } from "@/lib/consultant/types";
 import { useConsultantPortal } from "./consultant-provider";
-import { AddNoteDialog, FollowUpDialog } from "./consultant-dialogs";
-import { EmptyPanel, IconAction, PageHeader, PortalButton, PortalCard, PortalAvatar, StatusBadge, TableCaption } from "./consultant-ui";
+import { AddNoteDialog } from "./consultant-dialogs";
+import { EmptyPanel, IconAction, PageHeader, PortalButton, PortalCard, PortalAvatar, TableCaption } from "./consultant-ui";
 import { AdminIcon } from "@/components/adminuser/admin-icon";
 import styles from "./consultant.module.css";
 
@@ -25,8 +24,6 @@ export function ConsultantLeadsPage() {
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
   const [noteLead, setNoteLead] = useState<ConsultantLead | null>(null);
-  const [followUpLead, setFollowUpLead] = useState<ConsultantLead | null>(null);
-  const [generalFollowUpOpen, setGeneralFollowUpOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -58,15 +55,15 @@ export function ConsultantLeadsPage() {
 
   function exportMyLeads() {
     const rows: Array<Array<string | number | null>> = [
-      ["Student name", "Phone", "Email", "Interested course", "Lead source", "Status", "Last contacted", "Next follow-up", "Created date"],
-      ...allLeads.map((lead) => [lead.fullName, lead.phone, lead.email, lead.interestedCourse, lead.source, lead.status, lead.lastContactedAt ?? "", lead.nextFollowUpAt ?? "", lead.createdAt]),
+      ["Student name", "Phone", "Email", "Interested course", "Lead source", "Status", "Last contacted", "Notes count", "Created date"],
+      ...allLeads.map((lead) => [lead.fullName, lead.phone, lead.email, lead.interestedCourse, lead.source, lead.status, lead.lastContactedAt ?? "", lead.notes?.length || 0, lead.createdAt]),
     ];
     downloadCsvFile(rows, "edusaaathi-my-leads-demo.csv");
     portal.announce("Your assigned leads have been exported to CSV.");
   }
 
   return <div className={styles.pageStack}>
-    <PageHeader eyebrow="STUDENT MANAGEMENT" title="My Leads" description="Search and manage the student enquiries assigned to your consultant account." actions={<><PortalButton icon="download" onClick={exportMyLeads} disabled={!portal.hydrated}>Export my leads</PortalButton><PortalButton variant="primary" icon="calendar" onClick={() => setGeneralFollowUpOpen(true)} disabled={!portal.hydrated || !allLeads.length}>Schedule follow-up</PortalButton></>} />
+    <PageHeader eyebrow="STUDENT MANAGEMENT" title="My Leads" description="Search and manage the student enquiries assigned to your consultant account." actions={<><PortalButton icon="download" onClick={exportMyLeads} disabled={!portal.hydrated}>Export my leads</PortalButton></>} />
     <PortalCard title="Assigned student leads" subtitle={`${filtered.length} of ${allLeads.length} assigned records`}>
       <div className={styles.tableToolbar}>
         <div className={styles.filterGroup}>
@@ -83,8 +80,8 @@ export function ConsultantLeadsPage() {
       </div>
       {!portal.hydrated ? <p className={styles.tableMuted} role="status">Loading your leads…</p> : filtered.length ? <>
         <div className={styles.tableViewport}><table className={styles.dataTable}>
-          <TableCaption>My assigned student lead table with contact, course, source, status and follow-up details</TableCaption>
-          <thead><tr><th scope="col">Student name</th><th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Interested course</th><th scope="col">Lead source</th><th scope="col">Status</th><th scope="col">Last contacted</th><th scope="col">Next follow-up</th><th scope="col">Created date</th><th scope="col">Actions</th></tr></thead>
+          <TableCaption>My assigned student lead table with contact, course, source, status and notes details</TableCaption>
+          <thead><tr><th scope="col">Student name</th><th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Interested course</th><th scope="col">Lead source</th><th scope="col">Status</th><th scope="col">Last contacted</th><th scope="col">Notes</th><th scope="col">Created date</th><th scope="col">Actions</th></tr></thead>
           <tbody>{rows.map((lead) => {
             const wa = getConsultantWhatsAppHref(lead.phone, lead.fullName, lead.interestedCourse, portal.profile.fullName);
             const phone = getConsultantPhoneHref(lead.phone);
@@ -96,9 +93,9 @@ export function ConsultantLeadsPage() {
               <td><span className={styles.tableMainText}>{lead.source}</span></td>
               <td><label><span className={styles.srOnly}>Update status for {lead.fullName}</span><select className={styles.inlineStatusSelect} value={lead.status} onChange={(event) => updateStatus(lead, event.target.value as ConsultantLeadStatus)}>{CONSULTANT_LEAD_STATUSES.map((item) => <option key={item}>{item}</option>)}</select></label></td>
               <td>{lead.lastContactedAt ? formatDate(lead.lastContactedAt, { day: "numeric", month: "short" }) : <span className={styles.tableMuted}>Not contacted</span>}</td>
-              <td>{lead.nextFollowUpAt ? <span className={styles.tableMainText}>{formatDate(lead.nextFollowUpAt, { day: "numeric", month: "short" })} · {formatTime(lead.nextFollowUpAt)}</span> : <span className={styles.tableMuted}>—</span>}</td>
+              <td><button type="button" onClick={() => setNoteLead(lead)} className={styles.tableLink} title="Click to view or add notes">{lead.notes?.length ? `${lead.notes.length} note(s)` : "+ Add note"}</button></td>
               <td>{formatDate(lead.createdAt, { day: "numeric", month: "short", year: "numeric" })}</td>
-              <td><div className={styles.rowActionGroup}><IconAction label={`View ${lead.fullName}`} icon="eye" href={`/consultant/leads/${lead.id}`} />{phone ? <IconAction label={`Call ${lead.fullName}`} icon="phone" href={phone} /> : null}{wa ? <IconAction label={`Open WhatsApp with ${lead.fullName}; message delivery is not confirmed`} icon="whatsapp" href={wa} target="_blank" tone="whatsapp" /> : null}<IconAction label={`Add a note for ${lead.fullName}`} icon="note" onClick={() => setNoteLead(lead)} /><IconAction label={`Schedule follow-up for ${lead.fullName}`} icon="calendar" onClick={() => setFollowUpLead(lead)} /></div></td>
+              <td><div className={styles.rowActionGroup}><IconAction label={`View ${lead.fullName}`} icon="eye" href={`/consultant/leads/${lead.id}`} />{phone ? <IconAction label={`Call ${lead.fullName}`} icon="phone" href={phone} /> : null}{wa ? <IconAction label={`Open WhatsApp with ${lead.fullName}; message delivery is not confirmed`} icon="whatsapp" href={wa} target="_blank" tone="whatsapp" /> : null}<IconAction label={`Add a note for ${lead.fullName}`} icon="note" onClick={() => setNoteLead(lead)} /></div></td>
             </tr>;
           })}</tbody>
         </table></div>
@@ -106,7 +103,5 @@ export function ConsultantLeadsPage() {
       </> : <EmptyPanel title="No matching leads" description="Try changing your search or filters. Only leads assigned to your account are shown here." icon="users" action={<PortalButton onClick={() => { setSearch(""); setStatus("All statuses"); setSource("All sources"); setFromDate(""); setToDate(""); }}>Clear filters</PortalButton>} />}
     </PortalCard>
     {noteLead ? <AddNoteDialog lead={noteLead} onClose={() => setNoteLead(null)} onSave={(note) => portal.addLeadNote(noteLead.id, note)} /> : null}
-    {followUpLead ? <FollowUpDialog leads={allLeads} initialLeadId={followUpLead.id} onClose={() => setFollowUpLead(null)} onSave={(draft) => portal.createFollowUp(draft)} /> : null}
-    {generalFollowUpOpen ? <FollowUpDialog leads={allLeads} onClose={() => setGeneralFollowUpOpen(false)} onSave={(draft) => portal.createFollowUp(draft)} /> : null}
   </div>;
 }

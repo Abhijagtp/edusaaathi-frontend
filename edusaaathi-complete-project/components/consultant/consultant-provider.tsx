@@ -2,11 +2,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
-  addMyLeadNoteState, completeMyFollowUpState, CONSULTANT_STORAGE_KEY, createInitialConsultantState,
-  createMyFollowUpState, restoreConsultantState, updateMyFollowUpState, updateMyLeadState, updateMyProfileState,
+  addMyLeadNoteState, CONSULTANT_STORAGE_KEY, createInitialConsultantState,
+  restoreConsultantState, updateMyLeadState, updateMyProfileState,
 } from "@/lib/consultant/mock-service";
 import type {
-  ConsultantFollowUpDraft, ConsultantLeadUpdate, ConsultantPortalState, ConsultantProfileDraft,
+  ConsultantLead, ConsultantLeadUpdate, ConsultantPortalState, ConsultantProfile, ConsultantProfileDraft,
 } from "@/lib/consultant/types";
 
 type ConsultantPortalValue = ConsultantPortalState & {
@@ -15,9 +15,6 @@ type ConsultantPortalValue = ConsultantPortalState & {
   announce: (message: string) => void;
   updateMyLead: (id: string, updates: ConsultantLeadUpdate) => void;
   addLeadNote: (id: string, note: string) => void;
-  createFollowUp: (draft: ConsultantFollowUpDraft) => void;
-  updateFollowUp: (id: string, draft: ConsultantFollowUpDraft) => void;
-  completeFollowUp: (id: string) => void;
   updateMyProfile: (draft: ConsultantProfileDraft) => void;
   resetDemoData: () => void;
 };
@@ -41,12 +38,68 @@ export function ConsultantPortalProvider({ children }: { children: React.ReactNo
     setHydrated(true);
   }, []);
 
+  // Synchronize live consultant profile, metrics, and assigned leads from backend
+  useEffect(() => {
+    if (!hydrated) return;
+
+    async function syncConsultantBackend() {
+      try {
+        const [dashRes, leadsRes] = await Promise.allSettled([
+          fetch("/api/consultant/dashboard").then((r) => r.ok ? r.json() : null),
+          fetch("/api/consultant/leads").then((r) => r.ok ? r.json() : null),
+        ]);
+
+        const dashData = dashRes.status === "fulfilled" ? dashRes.value : null;
+        const leadsData = leadsRes.status === "fulfilled" ? leadsRes.value?.leads : null;
+
+        if (dashData && dashData.consultant) {
+          const c = dashData.consultant;
+          setState((curr) => {
+            const code = (c.referral_code || curr.profile.referralCode || "").toUpperCase();
+            const nextProfile: ConsultantProfile = {
+              id: String(c.id),
+              fullName: c.full_name || curr.profile.fullName,
+              email: c.email || curr.profile.email,
+              phone: c.phone_number || curr.profile.phone,
+              referralCode: code || curr.profile.referralCode,
+              isActive: true,
+              createdAt: curr.profile.createdAt,
+            };
+
+            const liveLeads: ConsultantLead[] = Array.isArray(leadsData) ? leadsData : curr.leads;
+            const liveReferralLeads = liveLeads
+              .filter((l) => (code && l.referralCode && l.referralCode.toUpperCase() === code) || l.referredByConsultantId === String(c.id) || l.source === "Consultant referral")
+              .map((l) => ({
+                id: `ref-${l.id}`,
+                fullName: l.fullName,
+                capturedAt: l.createdAt,
+                interestedCourse: l.interestedCourse,
+                currentStatus: l.status,
+                authorizedLeadId: l.id,
+              }));
+
+            return {
+              ...curr,
+              profile: nextProfile,
+              leads: liveLeads,
+              referralLeads: liveReferralLeads,
+            };
+          });
+        }
+      } catch {
+        // Fallback to local state
+      }
+    }
+
+    syncConsultantBackend();
+  }, [hydrated]);
+
   useEffect(() => {
     if (!hydrated) return;
     try {
       window.localStorage.setItem(CONSULTANT_STORAGE_KEY, JSON.stringify(state));
     } catch {
-      // The portal remains usable in memory when browser storage is unavailable.
+      // The portal remains usable in memory
     }
   }, [hydrated, state]);
 
@@ -60,50 +113,60 @@ export function ConsultantPortalProvider({ children }: { children: React.ReactNo
 
   const updateMyLead = useCallback((id: string, updates: ConsultantLeadUpdate) => {
     if (!state) return;
+    
+    // Call backend API
+    fetch(`/api/consultant/leads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: updates.status }),
+    }).catch(() => null);
+
     setState(updateMyLeadState(state, id, updates));
-    announce(updates.status === "Converted" ? "Lead marked as converted in this demo." : updates.status === "Lost" ? "Lead marked as lost in this demo." : "Lead updated in this demo.");
+    announce(updates.status === "Converted" ? "Lead marked as enrolled / converted." : updates.status === "Lost" ? "Lead marked as lost." : "Lead status updated.");
   }, [state, announce]);
 
   const addLeadNote = useCallback((id: string, note: string) => {
     if (!state) return;
+
+    fetch(`/api/consultant/leads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    }).catch(() => null);
+
     setState(addMyLeadNoteState(state, id, note));
-    announce("Note saved to this browser's demo data.");
-  }, [state, announce]);
-
-  const createFollowUp = useCallback((draft: ConsultantFollowUpDraft) => {
-    if (!state) return;
-    setState(createMyFollowUpState(state, draft));
-    announce("Follow-up scheduled in this browser's demo data.");
-  }, [state, announce]);
-
-  const updateFollowUp = useCallback((id: string, draft: ConsultantFollowUpDraft) => {
-    if (!state) return;
-    setState(updateMyFollowUpState(state, id, draft));
-    announce("Follow-up rescheduled in this browser's demo data.");
-  }, [state, announce]);
-
-  const completeFollowUp = useCallback((id: string) => {
-    if (!state) return;
-    const next = completeMyFollowUpState(state, id);
-    if (next === state) return;
-    setState(next);
-    announce("Follow-up marked complete.");
+    announce("Note saved successfully.");
   }, [state, announce]);
 
   const updateMyProfile = useCallback((draft: ConsultantProfileDraft) => {
     if (!state) return;
+
+    const parts = (draft.fullName || "").split(" ");
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ") || "";
+
+    fetch("/api/consultant/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        phone_number: draft.phone,
+      }),
+    }).catch(() => null);
+
     setState(updateMyProfileState(state, draft));
-    announce("Profile changes saved in this browser.");
+    announce("Profile changes saved.");
   }, [state, announce]);
 
   const resetDemoData = useCallback(() => {
     setState(createInitialConsultantState());
-    announce("Consultant demo data has been reset.");
+    announce("Consultant workspace data has been reset.");
   }, [announce]);
 
   const value = useMemo<ConsultantPortalValue>(() => ({
-    ...state, hydrated, notice, announce, updateMyLead, addLeadNote, createFollowUp, updateFollowUp, completeFollowUp, updateMyProfile, resetDemoData,
-  }), [state, hydrated, notice, announce, updateMyLead, addLeadNote, createFollowUp, updateFollowUp, completeFollowUp, updateMyProfile, resetDemoData]);
+    ...state, hydrated, notice, announce, updateMyLead, addLeadNote, updateMyProfile, resetDemoData,
+  }), [state, hydrated, notice, announce, updateMyLead, addLeadNote, updateMyProfile, resetDemoData]);
 
   return <ConsultantPortalContext.Provider value={value}>{children}</ConsultantPortalContext.Provider>;
 }

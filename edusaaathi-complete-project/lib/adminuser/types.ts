@@ -1,9 +1,8 @@
 import type { Course } from "@/lib/types";
 
-export type LeadStatus = "New" | "Contacted" | "Follow-up" | "Converted" | "Lost";
+export type LeadStatus = "New" | "Contacted" | "In progress" | "Converted" | "Lost";
 export type LeadSource = "Website" | "Consultant referral" | "WhatsApp" | "Walk-in" | "Education fair";
 export type AccountStatus = "Active" | "Inactive";
-export type FollowUpStatus = "Pending" | "Completed";
 export type AssignmentMethod = "Manual" | "Round robin" | "Fewest open leads";
 
 export type LeadNote = {
@@ -48,23 +47,11 @@ export type Referral = {
   campaign: string;
 };
 
-export type FollowUp = {
-  id: string;
-  leadId: string;
-  consultantId: string | null;
-  date: string;
-  time: string;
-  notes: string;
-  status: FollowUpStatus;
-  createdAt: string;
-  completedAt: string | null;
-};
-
 export type Activity = {
   id: string;
   leadId: string | null;
   consultantId: string | null;
-  type: "lead-created" | "status-changed" | "assigned" | "note-added" | "follow-up" | "consultant" | "course" | "content" | "settings";
+  type: "lead-created" | "status-changed" | "assigned" | "note-added" | "consultant" | "course" | "content" | "settings";
   title: string;
   description: string;
   createdAt: string;
@@ -89,7 +76,6 @@ export type AdminSettings = {
   referralCodePrefix: string;
   referralCookieDays: number;
   emailNotifications: boolean;
-  followUpReminders: boolean;
   weeklySummary: boolean;
 };
 
@@ -98,7 +84,6 @@ export type AdminState = {
   leads: Lead[];
   consultants: Consultant[];
   referrals: Referral[];
-  followUps: FollowUp[];
   activities: Activity[];
   websiteContent: WebsiteContent;
   settings: AdminSettings;
@@ -109,6 +94,9 @@ export type LeadDraft = Omit<Lead, "id" | "createdAt" | "lastContactedAt" | "not
   lastContactedAt?: string | null;
 };
 
-export type ConsultantDraft = Pick<Consultant, "name" | "email" | "phone" | "referralCode" | "status"> & { id?: string };
-export type FollowUpDraft = Pick<FollowUp, "leadId" | "consultantId" | "date" | "time" | "notes"> & { id?: string };
+export type ConsultantDraft = Pick<Consultant, "name" | "email" | "phone" | "referralCode" | "status"> & {
+  id?: string;
+  password?: string;
+};
 export type CourseDraft = Omit<Course, "id" | "updatedAt"> & { id?: string };
+

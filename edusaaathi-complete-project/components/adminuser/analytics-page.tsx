@@ -33,7 +33,7 @@ function trendBuckets(leads: Lead[], from: string, to: string) {
 }
 
 export function AnalyticsPage() {
-  const { leads, consultants, followUps, hydrated } = useAdminData();
+  const { leads, consultants, hydrated } = useAdminData();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   useEffect(() => {
@@ -55,7 +55,7 @@ export function AnalyticsPage() {
   const statusData = [
     { label: "New", value: filteredLeads.filter((lead) => lead.status === "New").length, color: "#5146DC" },
     { label: "Contacted", value: filteredLeads.filter((lead) => lead.status === "Contacted").length, color: "#1485C7" },
-    { label: "Follow-up", value: filteredLeads.filter((lead) => lead.status === "Follow-up").length, color: "#D97706" },
+    { label: "In progress", value: filteredLeads.filter((lead) => lead.status === "In progress").length, color: "#D97706" },
     { label: "Converted", value: converted, color: "#16A36A" },
     { label: "Lost", value: filteredLeads.filter((lead) => lead.status === "Lost").length, color: "#DC4C4C" },
   ];
@@ -65,7 +65,7 @@ export function AnalyticsPage() {
     value: filteredLeads.filter((lead) => lead.referredByConsultantId === consultant.id && lead.status === "Converted").length,
     color: consultant.status === "Active" ? "#16A36A" : "#A8B0C1",
   })).sort((a, b) => b.value - a.value).slice(0, 6);
-  const dueFollowUps = followUps.filter((item) => item.status === "Pending" && item.date <= localDateString() && (!dateFrom || item.date >= dateFrom) && (!dateTo || item.date <= dateTo)).length;
+  const totalNotes = filteredLeads.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0);
   const trend = trendBuckets(filteredLeads, dateFrom, dateTo);
   const bySource = ["Website", "Consultant referral", "WhatsApp", "Walk-in", "Education fair"].map((source) => {
     const sourceLeads = filteredLeads.filter((lead) => lead.source === source);
@@ -78,7 +78,7 @@ export function AnalyticsPage() {
       ["Metric", "Value"],
       ["Report start date", dateFrom], ["Report end date", dateTo], ["Total leads", String(filteredLeads.length)],
       ["Converted", String(converted)], ["Conversion rate", percent(converted, filteredLeads.length)], ["Contacted", String(contacted)],
-      ["Unassigned", String(unassigned)], ["Follow-ups due/overdue in range", String(dueFollowUps)], ["Average hours to first contact", avgResponseHours.toFixed(1)],
+      ["Unassigned", String(unassigned)], ["Counselor notes logged in range", String(totalNotes)], ["Average hours to first contact", avgResponseHours.toFixed(1)],
       [], ["Source", "Leads", "Converted", "Conversion rate"], ...bySource.map((row) => [row.source, String(row.leads), String(row.converted), row.rate]),
       [], ["Student", "Phone", "Email", "Course", "Source", "Referring consultant", "Assigned consultant", "Status", "Created"],
       ...filteredLeads.map((lead) => [lead.studentName, lead.phone, lead.email, lead.course, lead.source, getConsultantName(consultants, lead.referredByConsultantId), getConsultantName(consultants, lead.assignedConsultantId), lead.status, lead.createdAt]),
@@ -97,7 +97,7 @@ export function AnalyticsPage() {
       <StatCard label="Conversion rate" value={percent(converted, filteredLeads.length)} helper="Converted ÷ leads" icon="target" tone="violet" />
       <StatCard label="Contacted" value={contacted} helper="Has a contact timestamp" icon="phone" tone="blue" />
       <StatCard label="Unassigned" value={unassigned} helper="Needs an owner" icon="user" tone="amber" />
-      <StatCard label="Follow-ups due" value={dueFollowUps} helper="Due or overdue in range" icon="calendar" tone="rose" />
+      <StatCard label="Counselor notes" value={totalNotes} helper="Logged on student leads" icon="file-text" tone="rose" />
     </div>
     <div className={styles.dashboardGridTop}>
       <Panel title="Lead trend" subtitle="Enquiries created in the selected period" action={<span className={styles.chartLegend}><i /> Leads</span>} className={styles.trendPanel}>

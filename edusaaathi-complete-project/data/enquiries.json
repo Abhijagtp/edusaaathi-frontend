@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "id": "78b6d569-7378-4c23-acde-b40cadcb1dea",
+    "fullName": "Shubham",
+    "mobile": "8787654345",
+    "courseSlug": "bca",
+    "courseName": "BCA",
+    "city": "",
+    "status": "New",
+    "createdAt": "2026-10-28T09:43:15.484Z"
+  },
+  {
+    "id": "a28b17eb-f692-498c-97af-2529f24a7b1d",
+    "fullName": "Abhishek Jagtap",
+    "mobile": "8779774921",
+    "courseSlug": "mca",
+    "courseName": "MCA",
+    "city": "Mumbai",
+    "status": "New",
+    "createdAt": "2026-10-28T09:40:33.993Z"
+  },
+  {
+    "id": "2bb3dec2-50e9-40d0-9437-d945dc5c3d9e",
+    "fullName": "Devansh Kapoor",
+    "mobile": "9876501234",
+    "courseSlug": "bca",
+    "courseName": "BCA",
+    "city": "Bengaluru",
+    "status": "New",
+    "createdAt": "2026-10-28T09:39:20.731Z"
+  },
+  {
+    "id": "2a66e9d2-a5ba-4391-b2df-71566ce5a6fa",
+    "fullName": "Abhishek jagtap",
+    "mobile": "8779774921",
+    "courseSlug": "mca",
+    "courseName": "MCA",
+    "city": "Mumbai",
+    "status": "New",
+    "createdAt": "2026-10-28T07:57:27.319Z"
+  }
+]

@@ -3,35 +3,37 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Lead } from "@/lib/adminuser/types";
-import { getLeadWhatsAppHref, getReferralUrl, localDateString } from "@/lib/adminuser/mock-data";
-import { formatDate, formatTime, percent } from "@/lib/adminuser/format";
+import { getLeadWhatsAppHref, getReferralUrl } from "@/lib/adminuser/mock-data";
+import { formatDate, percent } from "@/lib/adminuser/format";
 import { useAdminData } from "./admin-data-provider";
 import { useAdminSession } from "./admin-session-provider";
 import { AdminButton, Avatar, Badge, EmptyState, Modal, PageHeading, Panel, StatCard } from "./admin-ui";
-import { FollowUpDialog } from "./follow-up-dialog";
 import { HorizontalBars } from "./admin-charts";
 import { AdminIcon } from "./admin-icon";
 import styles from "./admin.module.css";
 
 export function ConsultantDashboardPage() {
   const { session, sessionHydrated } = useAdminSession();
-  const { leads, consultants, followUps, settings, hydrated, addFollowUp, completeFollowUp } = useAdminData();
+  const { leads, consultants, settings, hydrated, addLeadNote } = useAdminData();
   const [copied, setCopied] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | undefined>();
-  const [scheduleLeadId, setScheduleLeadId] = useState("");
-  const today = localDateString();
+  const [noteLead, setNoteLead] = useState<Lead | undefined>();
+  const [noteInput, setNoteInput] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
   const consultant = session?.role === "consultant" ? consultants.find((item) => item.id === session.consultantId) : undefined;
   const assignedLeads = useMemo(() => consultant ? leads.filter((lead) => lead.assignedConsultantId === consultant.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [], [leads, consultant]);
   const referredLeads = useMemo(() => consultant ? leads.filter((lead) => lead.referredByConsultantId === consultant.id) : [], [leads, consultant]);
-  const ownFollowUps = useMemo(() => consultant ? followUps.filter((item) => item.consultantId === consultant.id).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)) : [], [followUps, consultant]);
-  const pendingFollowUps = ownFollowUps.filter((item) => item.status === "Pending");
-  const dueFollowUps = pendingFollowUps.filter((item) => item.date <= today).length;
+  const totalNotes = assignedLeads.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0);
   const converted = assignedLeads.filter((lead) => lead.status === "Converted").length;
   const referralConversions = referredLeads.filter((lead) => lead.status === "Converted").length;
   const referralUrl = consultant ? getReferralUrl(settings.websiteBaseUrl, consultant.referralCode) : "";
-  const statuses = ["New", "Contacted", "Follow-up", "Converted", "Lost"] as const;
-  const pipeline = statuses.map((status) => ({ label: status, value: assignedLeads.filter((lead) => lead.status === status).length, color: status === "Converted" ? "#16A36A" : status === "Lost" ? "#DC4C4C" : status === "Follow-up" ? "#D97706" : "#5146DC" }));
-  const selectedLeadFollowUps = selectedLead ? ownFollowUps.filter((item) => item.leadId === selectedLead.id) : [];
+  const statuses = ["New", "Contacted", "In progress", "Converted", "Lost"] as const;
+  const pipeline = statuses.map((status) => ({
+    label: status,
+    value: assignedLeads.filter((lead) => lead.status === status).length,
+    color: status === "Converted" ? "#16A36A" : status === "Lost" ? "#DC4C4C" : status === "In progress" ? "#D97706" : "#5146DC"
+  }));
 
   async function copyReferral() {
     try {
@@ -44,18 +46,26 @@ export function ConsultantDashboardPage() {
     }
   }
 
+  async function handleAddNote() {
+    if (!noteLead || !noteInput.trim()) return;
+    setSavingNote(true);
+    await addLeadNote(noteLead.id, noteInput.trim());
+    setSavingNote(false);
+    setNoteInput("");
+    setNoteLead(undefined);
+  }
+
   if (!sessionHydrated || !hydrated) return <div className={styles.pageContent}><div className={styles.loadingLine}>Loading consultant workspace…</div></div>;
-  if (!consultant) return <div className={styles.pageContent}><EmptyState title="Consultant demo account not found" description="Switch to an available consultant account to open this dashboard." icon="users" action={<Link href="/adminuser/login" className={styles.textLink}>Choose demo account <AdminIcon name="arrow-right" size={15} /></Link>} /></div>;
+  if (!consultant) return <div className={styles.pageContent}><EmptyState title="Consultant workspace" description="Sign in with your consultant account to open this workspace." icon="users" action={<Link href="/adminuser/login" className={styles.textLink}>Sign in <AdminIcon name="arrow-right" size={15} /></Link>} /></div>;
 
   const openLead = (lead: Lead) => setSelectedLead(lead);
-  const openScheduler = (leadId = assignedLeads[0]?.id ?? "") => { setScheduleLeadId(leadId); };
 
   return <div className={styles.pageContent}>
-    <PageHeading eyebrow="CONSULTANT WORKSPACE" title={`Welcome, ${consultant.name.split(" ")[0]}`} description="Your assigned students, follow-up queue and consultant referral activity." actions={<Link href="/adminuser/login" className={styles.switchDemoLink}><AdminIcon name="users-round" size={14} />Switch demo account</Link>} />
+    <PageHeading eyebrow="CONSULTANT WORKSPACE" title={`Welcome, ${consultant.name.split(" ")[0]}`} description="Your assigned students, notes queue and consultant referral activity." />
     <div className={styles.statsGrid}>
       <StatCard label="My assigned leads" value={assignedLeads.length} helper="Currently assigned to you" icon="users" tone="indigo" />
       <StatCard label="New leads" value={assignedLeads.filter((lead) => lead.status === "New").length} helper="Ready for first contact" icon="sparkle" tone="violet" />
-      <StatCard label="Follow-ups due" value={dueFollowUps} helper="Due today or overdue" icon="calendar" tone="amber" />
+      <StatCard label="Counselor notes" value={totalNotes} helper="Logged on your students" icon="file-text" tone="amber" />
       <StatCard label="Converted" value={converted} helper={`${percent(converted, assignedLeads.length)} of assigned leads`} icon="check-circle" tone="green" />
       <StatCard label="Referral leads" value={referredLeads.length} helper="Originally attributed to you" icon="referral" tone="blue" />
       <StatCard label="Referral conversions" value={referralConversions} helper={`${percent(referralConversions, referredLeads.length)} of referral leads`} icon="target" tone="rose" />
@@ -72,22 +82,63 @@ export function ConsultantDashboardPage() {
     </div>
 
     <div className={styles.consultantDashboardBottom}>
-      <Panel title="My assigned leads" subtitle={`${assignedLeads.length} student records`} action={<AdminButton icon="calendar" onClick={() => openScheduler()} disabled={!assignedLeads.length}>Schedule follow-up</AdminButton>}>
-        {assignedLeads.length ? <div className={styles.consultantLeadList}>{assignedLeads.slice(0, 8).map((lead) => { const wa = getLeadWhatsAppHref(lead.phone, lead.studentName, lead.course); return <div className={styles.consultantLeadRow} key={lead.id}><Avatar name={lead.studentName} size="sm" /><button type="button" className={styles.consultantLeadName} onClick={() => openLead(lead)}><strong>{lead.studentName}</strong><small>{lead.course} · {lead.phone}</small></button><Badge dot>{lead.status}</Badge>{wa ? <a className={styles.whatsappAction} href={wa} target="_blank" rel="noreferrer" aria-label={`Open WhatsApp with ${lead.studentName}; this does not confirm delivery`}><AdminIcon name="whatsapp" size={15} /></a> : null}<button type="button" className={styles.iconButton} aria-label={`Schedule follow-up for ${lead.studentName}`} onClick={() => openScheduler(lead.id)}><AdminIcon name="calendar" size={15} /></button></div>; })}</div> : <EmptyState title="No leads assigned yet" description="When leads are assigned to you, they will appear in this list." icon="users" />}
-        <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={14} />This consultant view is a frontend demo, not an authorization boundary. WhatsApp links do not confirm delivery.</p>
+      <Panel title="My assigned leads" subtitle={`${assignedLeads.length} student records`}>
+        {assignedLeads.length ? <div className={styles.consultantLeadList}>{assignedLeads.slice(0, 8).map((lead) => {
+          const wa = getLeadWhatsAppHref(lead.phone, lead.studentName, lead.course);
+          return <div className={styles.consultantLeadRow} key={lead.id}>
+            <Avatar name={lead.studentName} size="sm" />
+            <button type="button" className={styles.consultantLeadName} onClick={() => openLead(lead)}>
+              <strong>{lead.studentName}</strong>
+              <small>{lead.course} · {lead.phone}</small>
+            </button>
+            <Badge dot>{lead.status}</Badge>
+            {wa ? <a className={styles.whatsappAction} href={wa} target="_blank" rel="noreferrer" aria-label={`Open WhatsApp with ${lead.studentName}`}><AdminIcon name="whatsapp" size={15} /></a> : null}
+            <button type="button" className={styles.iconButton} aria-label={`Add note for ${lead.studentName}`} title="Add note" onClick={() => setNoteLead(lead)}>
+              <AdminIcon name="file-text" size={15} />
+            </button>
+          </div>;
+        })}</div> : <EmptyState title="No leads assigned yet" description="When leads are assigned to you, they will appear in this list." icon="users" />}
       </Panel>
-      <Panel title="My follow-ups" subtitle={`${pendingFollowUps.length} pending touchpoints`}>
-        {pendingFollowUps.length ? <div className={styles.consultantFollowUpList}>{pendingFollowUps.slice(0, 7).map((item) => { const lead = leads.find((entry) => entry.id === item.leadId); const late = item.date < today; return <article className={styles.consultantFollowUpRow} key={item.id}><span className={`${styles.consultantFollowUpDate} ${late ? styles.consultantFollowUpLate : ""}`}><strong>{formatDate(item.date, { day: "numeric" })}</strong><small>{formatDate(item.date, { month: "short" })}</small></span><span className={styles.consultantFollowUpInfo}><button type="button" onClick={() => lead && openLead(lead)}><strong>{lead?.studentName ?? "Lead"}</strong></button><small>{item.notes}</small><small>{formatTime(item.time)} · {late ? "Overdue" : item.date === today ? "Due today" : "Upcoming"}</small></span><AdminButton variant="ghost" className={styles.completeFollowUpButton} icon="check" onClick={() => completeFollowUp(item.id)}>Done</AdminButton></article>; })}</div> : <EmptyState title="No pending follow-ups" description="You are all caught up." icon="calendar" />}
+      <Panel title="Recent student notes" subtitle={`${totalNotes} notes recorded`}>
+        {totalNotes > 0 ? <div className={styles.consultantFollowUpList}>
+          {assignedLeads.flatMap((lead) => (lead.notes || []).map((note) => ({ ...note, studentName: lead.studentName, leadId: lead.id })))
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .slice(0, 7)
+            .map((note) => (
+              <article className={styles.consultantFollowUpRow} key={note.id}>
+                <span className={styles.consultantFollowUpInfo}>
+                  <strong>{note.studentName}</strong>
+                  <small>{note.text}</small>
+                  <small>{note.author} · {formatDate(note.createdAt)}</small>
+                </span>
+              </article>
+            ))}
+        </div> : <EmptyState title="No notes recorded yet" description="Add notes to your assigned leads to keep track of conversations." icon="note" />}
       </Panel>
     </div>
 
-    {selectedLead ? <Modal title={selectedLead.studentName} description={`${selectedLead.course} · ${selectedLead.phone}`} onClose={() => setSelectedLead(undefined)} footer={<><AdminButton onClick={() => setSelectedLead(undefined)}>Close</AdminButton><AdminButton variant="primary" icon="calendar" onClick={() => { openScheduler(selectedLead.id); setSelectedLead(undefined); }}>Schedule follow-up</AdminButton></>}>
+    {selectedLead ? <Modal title={selectedLead.studentName} description={`${selectedLead.course} · ${selectedLead.phone}`} onClose={() => setSelectedLead(undefined)} footer={<AdminButton onClick={() => setSelectedLead(undefined)}>Close</AdminButton>}>
       <div className={styles.consultantLeadDetail}><div><span>Status</span><Badge dot>{selectedLead.status}</Badge></div><div><span>Email</span><a href={`mailto:${selectedLead.email}`}>{selectedLead.email}</a></div><div><span>Lead source</span><Badge>{selectedLead.source}</Badge></div><div><span>Originally referred by</span><strong>{consultants.find((item) => item.id === selectedLead.referredByConsultantId)?.name ?? "—"}</strong></div><div><span>Created</span><strong>{formatDate(selectedLead.createdAt)}</strong></div></div>
-      <Panel title="Lead notes" subtitle={`${selectedLead.notes.length} saved notes`}>
-        {selectedLead.notes.length ? <div className={styles.notesList}>{selectedLead.notes.map((note) => <article className={styles.noteCard} key={note.id}><span className={styles.noteIcon}><AdminIcon name="note" size={15} /></span><div><p>{note.text}</p><small>{note.author} · {formatDate(note.createdAt)}</small></div></article>)}</div> : <EmptyState title="No notes yet" description="Admin demo note entry is available from the lead record." icon="note" />}
+      <Panel title="Lead notes" subtitle={`${selectedLead.notes.length} saved notes`} action={<AdminButton icon="plus" onClick={() => { setNoteLead(selectedLead); }}>Add note</AdminButton>}>
+        {selectedLead.notes.length ? <div className={styles.notesList}>{selectedLead.notes.map((note) => <article className={styles.noteCard} key={note.id}><span className={styles.noteIcon}><AdminIcon name="note" size={15} /></span><div><p>{note.text}</p><small>{note.author} · {formatDate(note.createdAt)}</small></div></article>)}</div> : <EmptyState title="No notes yet" description="Add notes to log your counseling conversations." icon="note" />}
       </Panel>
-      {selectedLeadFollowUps.length ? <div className={styles.consultantDetailFollowups}><strong>Your follow-ups for this student</strong>{selectedLeadFollowUps.map((item) => <span key={item.id}>{formatDate(item.date)} · {formatTime(item.time)} · {item.status}</span>)}</div> : null}
     </Modal> : null}
-    {scheduleLeadId ? <FollowUpDialog leadId={scheduleLeadId} leads={assignedLeads} consultants={[consultant]} onClose={() => setScheduleLeadId("")} onSubmit={(draft) => { addFollowUp({ ...draft, consultantId: consultant.id }); setScheduleLeadId(""); }} /> : null}
+
+    {noteLead ? <Modal title={`Add note for ${noteLead.studentName}`} description={`${noteLead.course} · ${noteLead.phone}`} onClose={() => { setNoteLead(undefined); setNoteInput(""); }} footer={<>
+      <AdminButton onClick={() => { setNoteLead(undefined); setNoteInput(""); }}>Cancel</AdminButton>
+      <AdminButton variant="primary" icon="check" disabled={savingNote} onClick={handleAddNote}>{savingNote ? "Saving…" : "Save note"}</AdminButton>
+    </>}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "8px 0" }}>
+        <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>Record counseling details, requirements, next steps, or student feedback.</p>
+        <textarea
+          rows={4}
+          value={noteInput}
+          onChange={(e) => setNoteInput(e.target.value)}
+          placeholder="e.g., Student asked for fee breakdown and syllabus. Discussed batch timing..."
+          style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "0.9rem", resize: "vertical" }}
+          autoFocus
+        />
+      </div>
+    </Modal> : null}
   </div>;
 }

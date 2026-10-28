@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { formatDate, formatTime } from "@/lib/adminuser/format";
-import { getConsultantPhoneHref, getConsultantWhatsAppHref, getMyFollowUps, getMyLeadById } from "@/lib/consultant/mock-service";
-import { CONSULTANT_LEAD_STATUSES, type ConsultantFollowUp, type ConsultantLeadStatus } from "@/lib/consultant/types";
+import { formatDate } from "@/lib/adminuser/format";
+import { getConsultantPhoneHref, getConsultantWhatsAppHref, getMyLeadById } from "@/lib/consultant/mock-service";
+import { CONSULTANT_LEAD_STATUSES, type ConsultantLeadStatus } from "@/lib/consultant/types";
 import { useConsultantPortal } from "./consultant-provider";
-import { AddNoteDialog, FollowUpDialog } from "./consultant-dialogs";
-import { EmptyPanel, FollowUpBadge, FormSelect, IconAction, PageHeader, PortalButton, PortalCard, PortalAvatar, StatusBadge } from "./consultant-ui";
+import { AddNoteDialog } from "./consultant-dialogs";
+import { EmptyPanel, FormSelect, PageHeader, PortalButton, PortalCard, StatusBadge } from "./consultant-ui";
 import { AdminIcon } from "@/components/adminuser/admin-icon";
 import styles from "./consultant.module.css";
 
@@ -17,16 +17,20 @@ export function ConsultantLeadDetailPage() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const portal = useConsultantPortal();
   const lead = getMyLeadById(portal, id);
-  const myFollowUps = useMemo(() => getMyFollowUps(portal).filter((item) => item.leadId === id).sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)), [portal.followUps, portal.leads, id]);
   const activity = useMemo(() => portal.activities.filter((item) => item.leadId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [portal.activities, id]);
   const [noteOpen, setNoteOpen] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [editingFollowUp, setEditingFollowUp] = useState<ConsultantFollowUp | undefined>();
+  const [inlineNote, setInlineNote] = useState("");
 
   function updateStatus(next: ConsultantLeadStatus) {
     if (!lead || lead.status === next) return;
     if ((next === "Lost" || next === "Converted") && !window.confirm(`Mark ${lead.fullName} as ${next.toLowerCase()}?`)) return;
     portal.updateMyLead(lead.id, { status: next });
+  }
+
+  function handleSaveInlineNote() {
+    if (!inlineNote.trim() || !lead) return;
+    portal.addLeadNote(lead.id, inlineNote.trim());
+    setInlineNote("");
   }
 
   if (!portal.hydrated) return <div className={styles.pageStack}><PageHeader eyebrow="MY LEADS" title="Lead details" description="Loading your assigned student record…" /></div>;
@@ -55,12 +59,26 @@ export function ConsultantLeadDetailPage() {
           </div>
         </PortalCard>
 
-        <PortalCard title="Notes" subtitle={`${lead.notes.length} saved note${lead.notes.length === 1 ? "" : "s"}`} action={<PortalButton icon="plus" onClick={() => setNoteOpen(true)}>Add note</PortalButton>}>
-          {lead.notes.length ? <div className={styles.noteList}>{lead.notes.map((item) => <article className={styles.noteItem} key={item.id}><p>{item.text}</p><small>{item.author} · {formatDate(item.createdAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></article>)}</div> : <EmptyPanel title="No notes yet" description="Add a short note after your next conversation." icon="note" action={<PortalButton icon="plus" onClick={() => setNoteOpen(true)}>Add first note</PortalButton>} />}
-        </PortalCard>
+        <PortalCard title="Counselor Notes & Consultation History" subtitle={`${lead.notes.length} saved note${lead.notes.length === 1 ? "" : "s"}`} action={<PortalButton icon="plus" onClick={() => setNoteOpen(true)}>Add note</PortalButton>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+            <textarea
+              value={inlineNote}
+              onChange={(e) => setInlineNote(e.target.value)}
+              placeholder="Quickly type a note from your conversation with this student…"
+              rows={3}
+              style={{
+                width: "100%", padding: "10px 12px", border: "1px solid #e2e8f0",
+                borderRadius: 8, fontSize: 13, fontFamily: "inherit", resize: "vertical",
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <PortalButton variant="primary" icon="note" disabled={!inlineNote.trim()} onClick={handleSaveInlineNote}>
+                Save note
+              </PortalButton>
+            </div>
+          </div>
 
-        <PortalCard title="Follow-up history" subtitle="Scheduled touchpoints for this student" action={<PortalButton variant="primary" icon="calendar" onClick={() => setScheduleOpen(true)}>Schedule follow-up</PortalButton>}>
-          {myFollowUps.length ? <div className={styles.followupHistory}>{myFollowUps.map((item) => <article className={styles.historyItem} key={item.id}><div><strong>{formatDate(item.scheduledAt, { day: "numeric", month: "short", year: "numeric" })} · {formatTime(item.scheduledAt)}</strong><p>{item.note}</p><small>{item.status === "Completed" ? `Completed ${formatDate(item.completedAt ?? item.scheduledAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : "Pending follow-up"}</small></div><div className={styles.rowActionGroup}>{item.status === "Pending" ? <><IconAction label="Reschedule follow-up" icon="edit" onClick={() => setEditingFollowUp(item)} /><IconAction label="Mark follow-up complete" icon="check" onClick={() => portal.completeFollowUp(item.id)} /></> : <FollowUpBadge completed />}</div></article>)}</div> : <EmptyPanel title="No follow-ups yet" description="Schedule a next conversation so this enquiry stays on track." icon="calendar" action={<PortalButton icon="calendar" onClick={() => setScheduleOpen(true)}>Schedule follow-up</PortalButton>} />}
+          {lead.notes.length ? <div className={styles.noteList}>{lead.notes.map((item) => <article className={styles.noteItem} key={item.id}><p>{item.text}</p><small>{item.author} · {formatDate(item.createdAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></article>)}</div> : <EmptyPanel title="No notes yet" description="Add notes above to record context from calls and counselling sessions." icon="note" />}
         </PortalCard>
       </div>
 
@@ -70,7 +88,6 @@ export function ConsultantLeadDetailPage() {
             {phone ? <a href={phone}><AdminIcon name="phone" size={14} />Call student</a> : null}
             {wa ? <a className={styles.quickWhatsApp} href={wa} target="_blank" rel="noreferrer" title="Opens WhatsApp; delivery is not confirmed"><AdminIcon name="whatsapp" size={14} />WhatsApp</a> : null}
             <button type="button" onClick={() => setNoteOpen(true)}><AdminIcon name="note" size={14} />Add note</button>
-            <button type="button" onClick={() => setScheduleOpen(true)}><AdminIcon name="calendar" size={14} />Schedule</button>
           </div>
           <p className={styles.attributionNotice}><AdminIcon name="circle-info" size={14} />WhatsApp opens your own account. A click does not mean a message was sent or read.</p>
         </PortalCard>
@@ -89,8 +106,8 @@ export function ConsultantLeadDetailPage() {
         </PortalCard>
         <PortalCard title="Activity timeline" subtitle="Updates on this lead record">
           {activity.length ? <div className={styles.timeline}>{activity.map((item) => {
-            const icon = item.activityType === "lead-converted" ? "check-circle" : item.activityType.startsWith("follow-up") ? "calendar" : item.activityType === "note-added" ? "note" : item.activityType === "status-updated" ? "sparkle" : "users";
-            const title = item.activityType === "lead-converted" ? "Lead converted" : item.activityType === "status-updated" ? "Status updated" : item.activityType === "follow-up-scheduled" ? "Follow-up scheduled" : item.activityType === "follow-up-completed" ? "Follow-up completed" : item.activityType === "note-added" ? "Note added" : "Lead assigned";
+            const icon = item.activityType === "lead-converted" ? "check-circle" : item.activityType === "note-added" ? "note" : item.activityType === "status-updated" ? "sparkle" : "users";
+            const title = item.activityType === "lead-converted" ? "Lead converted" : item.activityType === "status-updated" ? "Status updated" : item.activityType === "note-added" ? "Note added" : "Lead assigned";
             return <div className={styles.timelineItem} key={item.id}><span className={styles.timelineMark}><AdminIcon name={icon} size={13} /></span><div className={styles.timelineContent}><strong>{title}</strong><p>{item.description}</p><small>{item.actorName} · {formatDate(item.createdAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small></div></div>;
           })}</div> : <EmptyPanel title="No activity recorded" description="Your actions on this lead will appear here." icon="clock" />}
         </PortalCard>
@@ -98,7 +115,5 @@ export function ConsultantLeadDetailPage() {
     </div>
 
     {noteOpen ? <AddNoteDialog lead={lead} onClose={() => setNoteOpen(false)} onSave={(note) => portal.addLeadNote(lead.id, note)} /> : null}
-    {scheduleOpen ? <FollowUpDialog leads={portal.leads} initialLeadId={lead.id} onClose={() => setScheduleOpen(false)} onSave={(draft) => portal.createFollowUp(draft)} /> : null}
-    {editingFollowUp ? <FollowUpDialog leads={portal.leads} followUp={editingFollowUp} onClose={() => setEditingFollowUp(undefined)} onSave={(draft) => portal.updateFollowUp(editingFollowUp.id, draft)} /> : null}
   </div>;
 }

@@ -6,7 +6,7 @@ import { useConsultantPortal } from "./consultant-provider";
 import { MetricCard, PageHeader, PortalCard } from "./consultant-ui";
 import styles from "./consultant.module.css";
 
-const statusColors: Record<string, string> = { New: "#5a50d1", Contacted: "#3883b5", "Follow-up": "#d18620", Converted: "#258151", Lost: "#b64c4c" };
+const statusColors: Record<string, string> = { New: "#5a50d1", Contacted: "#3883b5", "In progress": "#d18620", Converted: "#258151", Lost: "#b64c4c" };
 
 function PerformanceTrend({ data }: { data: Array<{ label: string; assigned: number; converted: number }> }) {
   const width = 720;
@@ -36,12 +36,12 @@ function PerformanceTrend({ data }: { data: Array<{ label: string; assigned: num
 export function ConsultantPerformancePage() {
   const portal = useConsultantPortal();
   const [rangeDays, setRangeDays] = useState(180);
-  const performance = useMemo(() => getMyPerformance(portal, rangeDays), [portal.profile, portal.leads, portal.referralLeads, portal.followUps, rangeDays]);
+  const performance = useMemo(() => getMyPerformance(portal, rangeDays), [portal.profile, portal.leads, portal.referralLeads, rangeDays]);
   const referralConverted = performance.referralsInRange.filter((lead) => lead.currentStatus === "Converted").length;
   const referralRate = performance.referralsInRange.length ? Math.round((referralConverted / performance.referralsInRange.length) * 100) : 0;
 
   return <div className={styles.pageStack}>
-    <PageHeader eyebrow="PERSONAL INSIGHTS" title="My Performance" description="A private view of your assigned-lead outcomes, referral enquiries and completed follow-ups. No team or peer comparisons." actions={<label className={styles.filterControl}><span className={styles.srOnly}>Performance date range</span><select className={styles.rangeSelect} value={rangeDays} onChange={(event) => setRangeDays(Number(event.target.value))}><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={180}>Last 6 months</option><option value={365}>Last 12 months</option></select></label>} />
+    <PageHeader eyebrow="PERSONAL INSIGHTS" title="My Performance" description="A private view of your assigned-lead outcomes, referral enquiries and counselor notes. No team or peer comparisons." actions={<label className={styles.filterControl}><span className={styles.srOnly}>Performance date range</span><select className={styles.rangeSelect} value={rangeDays} onChange={(event) => setRangeDays(Number(event.target.value))}><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={180}>Last 6 months</option><option value={365}>Last 12 months</option></select></label>} />
     {!portal.hydrated ? <PortalCard title="Loading personal performance"><p className={styles.tableMuted}>Calculating your assigned-lead data…</p></PortalCard> : <>
       <section className={styles.metricGrid} aria-label="Personal performance totals for the selected period">
         <MetricCard label="Leads handled" value={performance.totalAssigned} note="Assigned in selected period" icon="users" />
@@ -49,7 +49,7 @@ export function ConsultantPerformancePage() {
         <MetricCard label="Leads converted" value={performance.converted} note="From your assigned cohort" icon="check-circle" tone="green" />
         <MetricCard label="Conversion rate" value={`${performance.conversionRate}%`} note="Converted ÷ assigned in period" icon="target" tone="purple" />
         <MetricCard label="Referral leads generated" value={performance.referralLeads} note="Attributed to your code" icon="link" tone="amber" />
-        <MetricCard label="Follow-ups completed" value={performance.followUpsCompleted} note="Completed in selected period" icon="calendar" tone="rose" />
+        <MetricCard label="Counselor notes logged" value={performance.notesLogged} note="Logged in selected period" icon="note" tone="rose" />
       </section>
 
       <div className={styles.chartGrid}>
@@ -66,13 +66,13 @@ export function ConsultantPerformancePage() {
       </div>
 
       <div className={styles.dashboardBottom}>
-        <PortalCard title="Monthly performance" subtitle="Lead cohort outcomes and follow-up activity">
+        <PortalCard title="Monthly performance" subtitle="Lead cohort outcomes and counseling notes">
           {performance.months.length ? <div className={styles.tableViewport}><table className={styles.dataTable}>
             <caption className={styles.srOnly}>Personal monthly performance for the most recent six months</caption>
-            <thead><tr><th scope="col">Month</th><th scope="col">Leads assigned</th><th scope="col">Leads contacted</th><th scope="col">Leads converted</th><th scope="col">Conversion rate</th><th scope="col">Follow-ups completed</th></tr></thead>
-            <tbody>{performance.months.map((month) => <tr key={month.key}><td><strong className={styles.tableMainText}>{month.label} {month.key.slice(0, 4)}</strong></td><td>{month.assigned}</td><td>{month.contacted}</td><td>{month.converted}</td><td>{month.assigned ? `${Math.round((month.converted / month.assigned) * 100)}%` : "—"}</td><td>{month.followUpsCompleted}</td></tr>)}</tbody>
+            <thead><tr><th scope="col">Month</th><th scope="col">Leads assigned</th><th scope="col">Leads contacted</th><th scope="col">Leads converted</th><th scope="col">Conversion rate</th><th scope="col">Notes logged</th></tr></thead>
+            <tbody>{performance.months.map((month) => <tr key={month.key}><td><strong className={styles.tableMainText}>{month.label} {month.key.slice(0, 4)}</strong></td><td>{month.assigned}</td><td>{month.contacted}</td><td>{month.converted}</td><td>{month.assigned ? `${Math.round((month.converted / month.assigned) * 100)}%` : "—"}</td><td>{month.notesLogged}</td></tr>)}</tbody>
           </table></div> : null}
-          <p className={styles.performanceNote}>Monthly conversion rate is based on the current status of leads assigned in that month. Follow-up completions are counted by completion date.</p>
+          <p className={styles.performanceNote}>Monthly conversion rate is based on the current status of leads assigned in that month. Notes logged are counted across student interactions.</p>
         </PortalCard>
         <PortalCard title="Referral lead performance" subtitle="Referral attribution is separate from assignment">
           <div className={styles.performanceReferral}>

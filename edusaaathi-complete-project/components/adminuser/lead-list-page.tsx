@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { Lead, LeadDraft, LeadSource, LeadStatus } from "@/lib/adminuser/types";
 import { LEAD_SOURCES, LEAD_STATUSES, exportLeadsCsv, getConsultantName } from "@/lib/adminuser/mock-data";
+import { formatDate } from "@/lib/adminuser/format";
 import { useAdminData } from "./admin-data-provider";
-import { AdminButton, EmptyState, PageHeading, SearchField, TablePagination } from "./admin-ui";
+import { AdminButton, Badge, EmptyState, Modal, PageHeading, SearchField, TablePagination, TextAreaField } from "./admin-ui";
 import { LeadDialog } from "./lead-dialog";
 import { LeadTable, type LeadSortField } from "./lead-table";
 import { AdminIcon } from "./admin-icon";
@@ -20,7 +22,7 @@ const config: Record<Mode, { eyebrow: string; title: string; description: string
 };
 
 export function LeadListPage({ mode = "all" }: { mode?: Mode }) {
-  const { leads, consultants, hydrated, addLead, updateLead, assignLeads, setLeadStatuses } = useAdminData();
+  const { leads, consultants, hydrated, addLead, updateLead, deleteLead, refreshLeads, assignLeads, setLeadStatuses, addLeadNote } = useAdminData();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All statuses");
   const [sourceFilter, setSourceFilter] = useState("All sources");
@@ -36,12 +38,20 @@ export function LeadListPage({ mode = "all" }: { mode?: Mode }) {
   const [bulkStatus, setBulkStatus] = useState("");
   const [dialogLead, setDialogLead] = useState<Lead | undefined>();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [noteLead, setNoteLead] = useState<Lead | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const allCount = leads.length;
+  const websiteCount = useMemo(() => leads.filter((l) => l.source === "Website" || !l.referredByConsultantId).length, [leads]);
+  const referralCount = useMemo(() => leads.filter((l) => l.source === "Consultant referral" || Boolean(l.referredByConsultantId)).length, [leads]);
 
   const filtered = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     const matching = leads.filter((lead) => {
-      if (mode === "website" && lead.source !== "Website") return false;
-      if (mode === "referral" && lead.source !== "Consultant referral") return false;
+      if (mode === "website" && lead.source !== "Website" && Boolean(lead.referredByConsultantId)) return false;
+      if (mode === "referral" && lead.source !== "Consultant referral" && !lead.referredByConsultantId) return false;
       if (statusFilter !== "All statuses" && lead.status !== statusFilter) return false;
       if (sourceFilter !== "All sources" && lead.source !== sourceFilter) return false;
       if (consultantFilter !== "All consultants" && lead.assignedConsultantId !== consultantFilter) return false;
@@ -104,6 +114,12 @@ export function LeadListPage({ mode = "all" }: { mode?: Mode }) {
     setBulkStatus("");
   }
 
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    await refreshLeads();
+    setIsRefreshing(false);
+  }
+
   const pageInfo = config[mode];
   const sourceOptions = [{ value: "All sources", label: "All sources" }, ...LEAD_SOURCES.map((source) => ({ value: source, label: source }))];
   const consultantOptions = [{ value: "All consultants", label: "All consultants" }, ...consultants.map((consultant) => ({ value: consultant.id, label: consultant.name }))];
@@ -112,12 +128,39 @@ export function LeadListPage({ mode = "all" }: { mode?: Mode }) {
   return (
     <div className={styles.pageContent}>
       <PageHeading eyebrow={pageInfo.eyebrow} title={pageInfo.title} description={pageInfo.description} actions={<>
+        <AdminButton icon="refresh" onClick={handleRefresh} disabled={isRefreshing}>{isRefreshing ? "Syncing…" : "Sync DB"}</AdminButton>
         <AdminButton icon="download" onClick={() => exportLeadsCsv(filtered, consultants, mode === "website" ? "website-enquiries.csv" : mode === "referral" ? "referral-leads.csv" : "all-leads.csv")}>Export CSV</AdminButton>
         {mode === "all" ? <AdminButton variant="primary" icon="plus" onClick={() => { setDialogLead(undefined); setDialogOpen(true); }}>Add lead</AdminButton> : null}
       </>} />
 
+      <div className={styles.leadNavTabs} role="tablist" aria-label="Lead management views">
+        <Link href="/adminuser/leads" className={`${styles.leadNavTab} ${mode === "all" ? styles.leadNavTabActive : ""}`}>
+          <AdminIcon name="users" size={16} />
+          <span>All Leads</span>
+          <span className={styles.leadNavBadge}>{allCount}</span>
+        </Link>
+        <Link href="/adminuser/website-enquiries" className={`${styles.leadNavTab} ${mode === "website" ? styles.leadNavTabActive : ""}`}>
+          <AdminIcon name="inbox" size={16} />
+          <span>Website Enquiries</span>
+          <span className={styles.leadNavBadge}>{websiteCount}</span>
+        </Link>
+        <Link href="/adminuser/referral-leads" className={`${styles.leadNavTab} ${mode === "referral" ? styles.leadNavTabActive : ""}`}>
+          <AdminIcon name="referral" size={16} />
+          <span>Referral Leads</span>
+          <span className={styles.leadNavBadge}>{referralCount}</span>
+        </Link>
+      </div>
+
       <section className={styles.tablePanel}>
-        <div className={styles.tablePanelTop}><div><strong>{filtered.length.toLocaleString("en-IN")} {mode === "website" ? "enquiries" : "leads"}</strong><span>{mode === "website" ? "Website form submissions" : mode === "referral" ? "Consultant-attributed enquiries" : "Across all sources"}</span></div><div className={styles.tableTopActions}><span className={styles.tableTopDot} />Mock dataset</div></div>
+        <div className={styles.tablePanelTop}>
+          <div>
+            <strong>{filtered.length.toLocaleString("en-IN")} {mode === "website" ? "enquiries" : "leads"}</strong>
+            <span>{mode === "website" ? "Website form submissions" : mode === "referral" ? "Consultant-attributed enquiries" : "Across all sources"}</span>
+          </div>
+          <div className={styles.tableTopActions}>
+            <span className={styles.tableTopDot} />Live PostgreSQL Sync
+          </div>
+        </div>
         <div className={styles.filterBar}>
           <SearchField value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Name, phone, email, course…" label="Search leads" />
           <label className={styles.filterControl}><span className={styles.srOnly}>Filter by status</span><select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}><option>All statuses</option>{LEAD_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
@@ -126,15 +169,120 @@ export function LeadListPage({ mode = "all" }: { mode?: Mode }) {
           {mode === "website" ? <label className={styles.filterControl}><span className={styles.srOnly}>Filter enquiries</span><select value={websiteFilter} onChange={(event) => { setWebsiteFilter(event.target.value); setPage(1); }}><option>All enquiries</option><option>New</option><option>Assigned</option><option>Unassigned</option></select></label> : null}
           <div className={styles.dateFilters}><label><span>From</span><input type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} aria-label="Created from" /></label><label><span>To</span><input type="date" value={dateTo} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} aria-label="Created to" /></label></div>
         </div>
-        {selectedCount > 0 ? <div className={styles.bulkBar}><span><strong>{selectedCount}</strong> selected</span><label><span className={styles.srOnly}>Assign selected leads</span><select value={bulkConsultant} onChange={(event) => setBulkConsultant(event.target.value)}><option value="">Assign consultant…</option><option value="__unassigned">Unassign</option>{consultants.filter((consultant) => consultant.status === "Active").map((consultant) => <option key={consultant.id} value={consultant.id}>{consultant.name}</option>)}</select></label><AdminButton icon="users" onClick={applyAssignment} disabled={!bulkConsultant}>Apply assignment</AdminButton><label><span className={styles.srOnly}>Set status for selected leads</span><select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)}><option value="">Set status…</option>{LEAD_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label><AdminButton onClick={applyStatus} disabled={!bulkStatus}>Update status</AdminButton><button className={styles.clearSelection} type="button" onClick={() => setSelectedIds([])}>Clear</button></div> : null}
-        {hydrated && filtered.length ? <LeadTable leads={pageLeads} consultants={consultants} selectedIds={selectedIds} onToggle={toggleLead} onToggleAll={toggleAllVisible} onEdit={(lead) => { setDialogLead(lead); setDialogOpen(true); }} mode={mode} sortBy={sortBy} sortDirection={sortDirection} onSort={changeSort} /> : null}
-        {hydrated && filtered.length === 0 ? <EmptyState title="No leads match this view" description={leads.length ? "Try clearing a filter or broadening your search." : "Sample leads will appear here once the demo data is loaded."} icon="users" action={mode === "all" ? <AdminButton variant="primary" icon="plus" onClick={() => setDialogOpen(true)}>Add your first lead</AdminButton> : undefined} /> : null}
+        {selectedCount > 0 ? (
+          <div className={styles.bulkBar}>
+            <span><strong>{selectedCount}</strong> selected</span>
+            <label><span className={styles.srOnly}>Assign selected leads</span><select value={bulkConsultant} onChange={(event) => setBulkConsultant(event.target.value)}><option value="">Assign consultant…</option><option value="__unassigned">Unassign</option>{consultants.filter((consultant) => consultant.status === "Active").map((consultant) => <option key={consultant.id} value={consultant.id}>{consultant.name}</option>)}</select></label>
+            <AdminButton icon="users" onClick={applyAssignment} disabled={!bulkConsultant}>Apply assignment</AdminButton>
+            <label><span className={styles.srOnly}>Set status for selected leads</span><select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)}><option value="">Set status…</option>{LEAD_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+            <AdminButton onClick={applyStatus} disabled={!bulkStatus}>Update status</AdminButton>
+            <AdminButton variant="danger" icon="trash" onClick={() => {
+              if (window.confirm(`Delete ${selectedCount} selected leads permanently from the database?`)) {
+                matchingSelectedIds.forEach((id) => deleteLead(id));
+                setSelectedIds([]);
+              }
+            }}>Delete</AdminButton>
+            <button className={styles.clearSelection} type="button" onClick={() => setSelectedIds([])}>Clear</button>
+          </div>
+        ) : null}
+        {hydrated && filtered.length ? (
+          <LeadTable
+            leads={pageLeads}
+            consultants={consultants}
+            selectedIds={selectedIds}
+            onToggle={toggleLead}
+            onToggleAll={toggleAllVisible}
+            onEdit={(lead) => { setDialogLead(lead); setDialogOpen(true); }}
+            onAddNote={(lead) => { setNoteLead(lead); setNoteText(""); }}
+            onDelete={(lead) => {
+              if (window.confirm(`Delete lead "${lead.studentName}" permanently from the database?`)) {
+                deleteLead(lead.id);
+              }
+            }}
+            mode={mode}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSort={changeSort}
+          />
+        ) : null}
+        {hydrated && filtered.length === 0 ? <EmptyState title="No leads match this view" description={leads.length ? "Try clearing a filter or broadening your search." : "Student leads will appear here once submitted or synced with the database."} icon="users" action={mode === "all" ? <AdminButton variant="primary" icon="plus" onClick={() => setDialogOpen(true)}>Add your first lead</AdminButton> : undefined} /> : null}
         {!hydrated ? <div className={styles.tableLoading}>Loading lead data…</div> : null}
         <TablePagination page={page} pageCount={pageCount} total={filtered.length} pageSize={pageSize} onPageChange={setPage} />
       </section>
 
       {dialogOpen ? <LeadDialog lead={dialogLead} consultants={consultants} onClose={() => { setDialogOpen(false); setDialogLead(undefined); }} onSubmit={saveLead} /> : null}
-      <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={15} /> Changes on this page update the local demo dataset only. No API request is made.</p>
+
+      {noteLead ? (() => {
+        const liveLead = leads.find((l) => l.id === noteLead.id) || noteLead;
+        return (
+          <Modal
+            title={`Student Notes · ${liveLead.studentName}`}
+            description={`${liveLead.course} · ${liveLead.phone}`}
+            onClose={() => setNoteLead(null)}
+            footer={<>
+              <AdminButton onClick={() => setNoteLead(null)}>Close</AdminButton>
+              <AdminButton
+                variant="primary"
+                icon="note"
+                disabled={!noteText.trim() || isSavingNote}
+                onClick={async () => {
+                  if (!noteText.trim()) return;
+                  setIsSavingNote(true);
+                  addLeadNote(liveLead.id, noteText.trim());
+                  setNoteText("");
+                  setIsSavingNote(false);
+                }}
+              >
+                {isSavingNote ? "Saving…" : "Save Note"}
+              </AdminButton>
+            </>}
+          >
+            <div className={styles.leadNoteModalBody}>
+              <div className={styles.leadNoteSummaryBar}>
+                <span>Status: <Badge dot>{liveLead.status}</Badge></span>
+                <span>Source: <Badge>{liveLead.source}</Badge></span>
+                {liveLead.assignedConsultantId ? <span>Assigned to: <strong>{getConsultantName(consultants, liveLead.assignedConsultantId)}</strong></span> : <span><em>Unassigned</em></span>}
+              </div>
+
+              {liveLead.notes && liveLead.notes.length > 0 ? (
+                <div className={styles.modalNotesHistory}>
+                  <p className={styles.modalNotesHistoryLabel}>Recorded Notes ({liveLead.notes.length}):</p>
+                  <div className={styles.notesList}>
+                    {liveLead.notes.map((n) => (
+                      <article className={styles.noteCard} key={n.id}>
+                        <span className={styles.noteIcon}><AdminIcon name="note" size={15} /></span>
+                        <div>
+                          <p>{n.text}</p>
+                          <small>{n.author} · {formatDate(n.createdAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className={styles.modalNoNotes}>No notes recorded yet for this student.</p>
+              )}
+
+              <div className={styles.formStack}>
+                <TextAreaField
+                  label="Add Note"
+                  name="newLeadNote"
+                  rows={4}
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Record conversation details, student preferences, eligibility remarks, or consultation summary…"
+                  required
+                />
+                <p className={styles.helperInfo}>
+                  <AdminIcon name="circle-info" size={14} /> Note is saved directly to the counselor notes record in Neon PostgreSQL.
+                </p>
+              </div>
+            </div>
+          </Modal>
+        );
+      })() : null}
+
+      <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={15} /> Connected to Django REST Framework &amp; Neon PostgreSQL. Changes to leads, assignments, statuses, and notes are synchronized live with the database.</p>
     </div>
   );
 }

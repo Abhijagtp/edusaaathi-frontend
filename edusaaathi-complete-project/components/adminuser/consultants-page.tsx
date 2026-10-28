@@ -21,20 +21,32 @@ function suggestedCode(name: string, existing: Consultant[]) {
   return code;
 }
 
-function ConsultantDialog({ consultant, consultants, onClose, onSave }: { consultant?: Consultant; consultants: Consultant[]; onClose: () => void; onSave: (draft: ConsultantDraft) => void }) {
-  const [draft, setDraft] = useState<ConsultantDraft>(() => consultant ? { id: consultant.id, name: consultant.name, email: consultant.email, phone: consultant.phone, referralCode: consultant.referralCode, status: consultant.status } : { name: "", email: "", phone: "", referralCode: "", status: "Active" });
+function ConsultantDialog({ consultant, consultants, onClose, onSave }: { consultant?: Consultant; consultants: Consultant[]; onClose: () => void; onSave: (draft: ConsultantDraft) => Promise<void> | void }) {
+  const [draft, setDraft] = useState<ConsultantDraft>(() => consultant ? { id: consultant.id, name: consultant.name, email: consultant.email, phone: consultant.phone, referralCode: consultant.referralCode, status: consultant.status } : { name: "", email: "", phone: "", referralCode: "", status: "Active", password: "" });
   const [error, setError] = useState("");
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
     const finalDraft = { ...draft, referralCode: draft.referralCode.trim().toUpperCase() || suggestedCode(draft.name, consultants) };
-    try { onSave(finalDraft); } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Consultant could not be saved."); }
+    try {
+      setSaving(true);
+      await onSave(finalDraft);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Consultant could not be saved.");
+    } finally {
+      setSaving(false);
+    }
   }
-  return <Modal title={consultant ? "Edit consultant" : "Add consultant"} description="Each consultant gets a unique referral code. Inactive accounts keep their attribution history." onClose={onClose} footer={<><AdminButton onClick={onClose}>Cancel</AdminButton><AdminButton variant="primary" type="submit" form="consultant-editor">{consultant ? "Save changes" : "Add consultant"}</AdminButton></>}>
+
+  return <Modal title={consultant ? "Edit consultant" : "Add consultant"} description="Provision consultant account and generate unique referral code. Consultants use this account to log in to the Consultant Portal." onClose={onClose} footer={<><AdminButton onClick={onClose} disabled={saving}>Cancel</AdminButton><AdminButton variant="primary" type="submit" form="consultant-editor" disabled={saving}>{saving ? "Saving…" : consultant ? "Save changes" : "Create consultant account"}</AdminButton></>}>
     <form id="consultant-editor" onSubmit={submit} className={styles.formStack}><FieldGrid>
       <TextField label="Full name" name="name" value={draft.name} onChange={(event) => setDraft((value) => ({ ...value, name: event.target.value }))} required placeholder="e.g. Aditi Shah" />
-      <TextField label="Email" name="email" type="email" value={draft.email} onChange={(event) => setDraft((value) => ({ ...value, email: event.target.value }))} required placeholder="name@edusathi.example" />
-      <TextField label="Phone" name="phone" type="tel" value={draft.phone} onChange={(event) => setDraft((value) => ({ ...value, phone: event.target.value }))} required placeholder="+91 98765 43210" />
-      <TextField label="Referral code" name="referralCode" value={draft.referralCode} onChange={(event) => setDraft((value) => ({ ...value, referralCode: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") }))} hint="Letters and numbers only. Leave blank to generate a unique code." placeholder="ADITI02" />
+      <TextField label="Email address" name="email" type="email" value={draft.email} onChange={(event) => setDraft((value) => ({ ...value, email: event.target.value }))} required placeholder="aditi@example.com" hint="Used as login username for the Consultant Portal." />
+      <TextField label="Phone number" name="phone" type="tel" value={draft.phone} onChange={(event) => setDraft((value) => ({ ...value, phone: event.target.value }))} required placeholder="+91 98765 43210" />
+      <TextField label="Login password" name="password" type="text" value={draft.password || ""} onChange={(event) => setDraft((value) => ({ ...value, password: event.target.value }))} placeholder={consultant ? "Leave blank to keep current password" : "e.g. Consultant@2026 (or auto-generate)"} hint={consultant ? "Leave blank to keep unchanged." : "Password used by the consultant to log in at /admin/login."} />
+      <TextField label="Referral code" name="referralCode" value={draft.referralCode} onChange={(event) => setDraft((value) => ({ ...value, referralCode: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") }))} hint="Letters and numbers only. Leave blank to auto-generate." placeholder="ADITI02" />
       <SelectField label="Account status" name="status" value={draft.status} onChange={(event) => setDraft((value) => ({ ...value, status: event.target.value as Consultant["status"] }))} options={[{ value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }]} />
     </FieldGrid>{error ? <p className={styles.formError} role="alert">{error}</p> : null}</form>
   </Modal>;
@@ -69,6 +81,15 @@ export function ConsultantsPage() {
   const [editing, setEditing] = useState<Consultant | undefined>();
   const [showEditor, setShowEditor] = useState(false);
   const [viewing, setViewing] = useState<Consultant | undefined>();
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    name: string;
+    email: string;
+    password?: string;
+    referralCode: string;
+    loginUrl: string;
+  } | null>(null);
+  const [copiedCreds, setCopiedCreds] = useState(false);
+
   const filtered = useMemo(() => consultants.filter((consultant) => {
     const searchText = `${consultant.name} ${consultant.email} ${consultant.phone} ${consultant.referralCode}`.toLowerCase();
     return (statusFilter === "All accounts" || consultant.status === statusFilter) && (!search.trim() || searchText.includes(search.trim().toLowerCase()));
@@ -77,11 +98,38 @@ export function ConsultantsPage() {
   const assignedCount = leads.filter((lead) => lead.assignedConsultantId).length;
   const converted = leads.filter((lead) => lead.status === "Converted").length;
 
-  function save(draft: ConsultantDraft) {
-    if (draft.id) updateConsultant(draft.id, draft);
-    else addConsultant(draft);
-    setShowEditor(false);
-    setEditing(undefined);
+  async function save(draft: ConsultantDraft) {
+    if (draft.id) {
+      updateConsultant(draft.id, draft);
+      setShowEditor(false);
+      setEditing(undefined);
+    } else {
+      const res = await addConsultant(draft);
+      setShowEditor(false);
+      setEditing(undefined);
+      const effectivePassword = res?.initialPassword || draft.password;
+      if (effectivePassword) {
+        setCreatedCredentials({
+          name: draft.name,
+          email: draft.email,
+          password: effectivePassword,
+          referralCode: draft.referralCode,
+          loginUrl: `${window.location.origin}/admin/login`,
+        });
+      }
+    }
+  }
+
+  async function copyCredentialsText() {
+    if (!createdCredentials) return;
+    const text = `EduSaathi Consultant Login Credentials:\nName: ${createdCredentials.name}\nLogin URL: ${createdCredentials.loginUrl}\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.password || "Provided during setup"}\nReferral Code: ${createdCredentials.referralCode}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCreds(true);
+      setTimeout(() => setCopiedCreds(false), 2000);
+    } catch {
+      setCopiedCreds(false);
+    }
   }
 
   async function copyReferralLink(id: string, url: string) {
@@ -107,8 +155,48 @@ export function ConsultantsPage() {
         return <tr key={consultant.id}><td><div className={styles.studentCell}><Avatar name={consultant.name} size="sm" /><span><strong className={styles.studentName}>{consultant.name}</strong><small>{referralsForConsultant.length} referral leads</small></span></div></td><td><span className={styles.contactStack}>{consultant.email}<small>{consultant.phone}</small></span></td><td><button type="button" className={styles.codeCopy} title={`Copy referral link for ${consultant.name}`} aria-label={`Copy referral link for ${consultant.name}`} onClick={() => void copyReferralLink(consultant.id, url)}><code>{consultant.referralCode}</code><AdminIcon name={copiedCode === consultant.id ? "check" : "copy"} size={13} /></button></td><td><Badge dot>{consultant.status}</Badge></td><td>{assigned.length}</td><td>{convertedLeads}</td><td><span className={styles.rateCell}>{percent(convertedLeads, assigned.length)}</span></td><td>{formatDate(consultant.createdAt)}</td><td><div className={styles.rowActions}><button type="button" className={styles.rowTextAction} onClick={() => setViewing(consultant)}>View</button><button type="button" className={styles.rowTextAction} onClick={() => { setEditing(consultant); setShowEditor(true); }}>Edit</button><button type="button" className={`${styles.rowTextAction} ${consultant.status === "Active" ? styles.rowActionDanger : styles.rowActionSuccess}`} onClick={() => setConsultantStatus(consultant.id, consultant.status === "Active" ? "Inactive" : "Active")}>{consultant.status === "Active" ? "Deactivate" : "Activate"}</button></div></td></tr>;
       })}</tbody></table></div> : <EmptyState title="No consultants found" description="Try another search or add a consultant to the team." icon="users" action={<AdminButton variant="primary" icon="plus" onClick={() => { setEditing(undefined); setShowEditor(true); }}>Add consultant</AdminButton>} />}
     </Panel>
-    <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={15} />Consultant changes are stored locally in this demo. Deactivating a consultant preserves assigned and referred lead history.</p>
+    <p className={styles.pageFootnote}><AdminIcon name="circle-info" size={15} />Consultant accounts sync directly to Django backend and Neon PostgreSQL. Deactivating a consultant preserves lead history.</p>
     {showEditor ? <ConsultantDialog consultant={editing} consultants={consultants} onClose={() => { setShowEditor(false); setEditing(undefined); }} onSave={save} /> : null}
     {viewing ? <ConsultantDetailDialog consultant={viewing} leads={leads} referrals={referrals} baseUrl={settings.websiteBaseUrl} onClose={() => setViewing(undefined)} /> : null}
+
+    {createdCredentials ? (
+      <Modal
+        title="Consultant Account Created"
+        description="Share these login credentials with the consultant. When they sign in, they will be automatically directed to their dedicated Consultant Portal."
+        onClose={() => setCreatedCredentials(null)}
+        footer={
+          <>
+            <AdminButton onClick={() => setCreatedCredentials(null)}>Close</AdminButton>
+            <AdminButton variant="primary" icon={copiedCreds ? "check" : "copy"} onClick={copyCredentialsText}>
+              {copiedCreds ? "Credentials copied!" : "Copy all credentials"}
+            </AdminButton>
+          </>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "8px 0" }}>
+          <div style={{ background: "#f8fafc", padding: "14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <p style={{ margin: "0 0 8px 0", fontSize: "0.85rem", color: "#64748b" }}>Login Portal URL</p>
+            <code style={{ fontSize: "0.95rem", color: "#1e293b", fontWeight: 600 }}>{createdCredentials.loginUrl}</code>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+              <p style={{ margin: "0 0 4px 0", fontSize: "0.8rem", color: "#64748b" }}>Email / Username</p>
+              <strong style={{ fontSize: "0.95rem", color: "#0f172a" }}>{createdCredentials.email}</strong>
+            </div>
+            <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+              <p style={{ margin: "0 0 4px 0", fontSize: "0.8rem", color: "#64748b" }}>Password</p>
+              <code style={{ fontSize: "1rem", color: "#5146dc", fontWeight: 700 }}>{createdCredentials.password || "—"}</code>
+            </div>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <p style={{ margin: "0 0 4px 0", fontSize: "0.8rem", color: "#64748b" }}>Assigned Referral Code</p>
+            <code style={{ fontSize: "0.95rem", color: "#059669", fontWeight: 700 }}>{createdCredentials.referralCode}</code>
+          </div>
+          <p style={{ margin: 0, fontSize: "0.85rem", color: "#475569", lineHeight: 1.5 }}>
+            <AdminIcon name="circle-info" size={14} /> When this user logs in at <code>/admin/login</code>, our authentication system detects their <strong>CONSULTANT</strong> role and automatically opens the <strong>Consultant Workspace</strong> (not the Admin panel).
+          </p>
+        </div>
+      </Modal>
+    ) : null}
   </div>;
 }

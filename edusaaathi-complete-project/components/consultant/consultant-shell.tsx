@@ -14,7 +14,6 @@ const navGroups: NavGroup[] = [
   { label: "Overview", items: [{ label: "Dashboard", href: "/consultant", icon: "dashboard" }] },
   { label: "Student Management", items: [
     { label: "My Leads", href: "/consultant/leads", icon: "users" },
-    { label: "Follow-ups", href: "/consultant/follow-ups", icon: "calendar" },
   ] },
   { label: "Lead Generation", items: [{ label: "My Referral Link", href: "/consultant/referrals", icon: "link" }] },
   { label: "Insights", items: [{ label: "My Performance", href: "/consultant/performance", icon: "chart" }] },
@@ -24,7 +23,6 @@ const navGroups: NavGroup[] = [
 const routeTitles: Record<string, string> = {
   consultant: "Dashboard",
   leads: "My Leads",
-  "follow-ups": "Follow-ups",
   referrals: "My Referral Link",
   performance: "My Performance",
   profile: "My Profile",
@@ -78,11 +76,6 @@ export function ConsultantShell({ children }: { children: React.ReactNode }) {
           </Link>
           <button type="button" className={styles.mobileClose} onClick={() => setMobileOpen(false)} aria-label="Close navigation"><AdminIcon name="close" /></button>
         </div>
-        <div className={styles.workspaceCard}>
-          <span className={styles.avatarSmall}>{initials}</span>
-          <span className={styles.workspaceCopy}><strong>{hydrated ? profile.fullName : "Consultant"}</strong><small>Consultant workspace</small></span>
-          <span className={styles.workspaceChevron}><AdminIcon name="chevron-down" size={15} /></span>
-        </div>
         <nav className={styles.sideNav} aria-label="Consultant sections">
           {navGroups.map((group) => (
             <div className={styles.navGroup} key={group.label}>
@@ -96,7 +89,7 @@ export function ConsultantShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className={styles.sidebarBottom}>
-          <div className={styles.sideTip}><span><AdminIcon name="circle-info" size={16} /></span><div><strong>Keep the next step clear</strong><small>A timely follow-up helps every enquiry move forward.</small></div></div>
+          <div className={styles.sideTip}><span><AdminIcon name="circle-info" size={16} /></span><div><strong>Keep records updated</strong><small>Add notes to student leads after every counseling session.</small></div></div>
           <button type="button" className={styles.collapseButton} aria-expanded={!collapsed} onClick={() => setCollapsed((value) => !value)}><AdminIcon name={collapsed ? "chevron-right" : "chevron-left"} size={16} /><span>{collapsed ? "Expand sidebar" : "Collapse sidebar"}</span></button>
         </div>
       </aside>
@@ -108,7 +101,6 @@ export function ConsultantShell({ children }: { children: React.ReactNode }) {
             <div className={styles.breadcrumb}><span>Consultant workspace</span><AdminIcon name="chevron-right" size={14} /><strong>{currentTitle}</strong></div>
           </div>
           <div className={styles.topbarRight}>
-            <span className={styles.demoChip}><i />Mock account · not authenticated</span>
             <div className={styles.profileWrap} ref={profileWrapRef}>
               <button type="button" className={styles.profileButton} aria-expanded={profileOpen} onClick={() => setProfileOpen((value) => !value)}>
                 <span className={styles.profileAvatar}>{initials}</span>
@@ -119,17 +111,39 @@ export function ConsultantShell({ children }: { children: React.ReactNode }) {
                 <div className={styles.profileMenu}>
                   <div className={styles.profileMenuHead}><span className={styles.profileAvatar}>{initials}</span><span><strong>{profile.fullName}</strong><small>{profile.email}</small></span></div>
                   <Link href="/consultant/profile" onClick={() => setProfileOpen(false)}><AdminIcon name="user" size={15} />My profile</Link>
-                  <p>This is a frontend-only prototype. Production sign-in and record permissions must be enforced by Django REST Framework.</p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await fetch("/api/admin/logout", { method: "POST" });
+                      try { window.sessionStorage.removeItem("coursesathi-adminuser-demo-session-v1"); } catch {}
+                      window.location.href = "/admin/login";
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "8px 12px",
+                      background: "none",
+                      border: "none",
+                      color: "#ef4444",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontSize: "13px",
+                      marginTop: "6px",
+                    }}
+                  >
+                    <AdminIcon name="lock" size={15} />Sign out
+                  </button>
                 </div>
               ) : null}
             </div>
           </div>
         </header>
         <main className={styles.mainContent} id="consultant-main">
-          <div className={styles.demoNotice}><AdminIcon name="circle-info" size={16} /><span><strong>Demo data</strong> · Changes are saved in this browser only. WhatsApp opens your own account and does not confirm a message was sent.</span></div>
           {notice ? <div className={styles.toast} role="status" aria-live="polite"><AdminIcon name="check-circle" size={17} />{notice}</div> : null}
           {children}
-          <footer className={styles.portalFooter}><span>Edusaaathi consultant workspace</span><span>Personal mock data · No backend connection</span></footer>
+          <footer className={styles.portalFooter}><span>Edusaaathi consultant workspace</span><span>Connected to Django REST Framework Backend</span></footer>
         </main>
       </div>
     </div>

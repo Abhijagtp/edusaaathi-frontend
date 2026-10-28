@@ -11,7 +11,7 @@ import styles from "./admin.module.css";
 export type LeadSortField = "studentName" | "course" | "source" | "createdAt" | "lastContactedAt" | "status";
 
 export function LeadTable({
-  leads, consultants, selectedIds, onToggle, onToggleAll, onEdit, mode = "all", sortBy, sortDirection, onSort,
+  leads, consultants, selectedIds, onToggle, onToggleAll, onEdit, onDelete, onAddNote, mode = "all", sortBy, sortDirection, onSort,
 }: {
   leads: Lead[];
   consultants: Consultant[];
@@ -19,6 +19,8 @@ export function LeadTable({
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   onEdit: (lead: Lead) => void;
+  onDelete?: (lead: Lead) => void;
+  onAddNote?: (lead: Lead) => void;
   mode?: "all" | "website" | "referral";
   sortBy: LeadSortField;
   sortDirection: "asc" | "desc";
@@ -58,8 +60,23 @@ export function LeadTable({
               <td><span className={styles.dateCell}>{formatDate(lead.createdAt)}</span></td>
               <td><div className={styles.rowActions}>
                 {whatsappHref ? <a className={styles.whatsappAction} href={whatsappHref} target="_blank" rel="noreferrer" aria-label={`Open WhatsApp conversation with ${lead.studentName}; this does not confirm delivery`} title="Opens WhatsApp; it does not confirm delivery"><AdminIcon name="whatsapp" size={16} /></a> : null}
+                {onAddNote ? (
+                  <button
+                    type="button"
+                    className={styles.rowNoteAction}
+                    onClick={() => onAddNote(lead)}
+                    aria-label={`Add note for ${lead.studentName}`}
+                    title={lead.notes && lead.notes.length ? `${lead.notes.length} note(s). Click to view / add note.` : "Add a note for this student"}
+                  >
+                    <AdminIcon name="note" size={15} />
+                    {lead.notes && lead.notes.length > 0 ? (
+                      <span className={styles.noteBadgePill}>{lead.notes.length}</span>
+                    ) : null}
+                  </button>
+                ) : null}
                 <IconButton label={`Edit ${lead.studentName}`} icon="edit" onClick={() => onEdit(lead)} />
                 <Link href={`/adminuser/leads/${lead.id}`} className={styles.rowOpen} aria-label={`View ${lead.studentName} details`} title="View lead details"><AdminIcon name="arrow-up-right" size={15} /></Link>
+                {onDelete ? <button type="button" className={styles.rowDelete} aria-label={`Delete ${lead.studentName}`} title="Delete lead from database" onClick={() => onDelete(lead)}><AdminIcon name="trash" size={15} /></button> : null}
               </div></td>
             </tr>;
           })}

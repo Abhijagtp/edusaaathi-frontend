@@ -1,12 +1,12 @@
 import { SITE_URL } from "@/lib/config";
 import type { Course } from "@/lib/types";
-import type { Activity, AdminSettings, AdminState, Consultant, FollowUp, FollowUpStatus, Lead, LeadSource, LeadStatus, Referral, WebsiteContent } from "./types";
+import type { Activity, AdminSettings, AdminState, Consultant, Lead, LeadSource, LeadStatus, Referral, WebsiteContent } from "./types";
 
 export const ADMIN_STORAGE_KEY = "edusathi-adminuser-mock-v1";
 export const ADMINISTRATOR_NAME = "Ananya Sharma";
 
 export const COURSE_OPTIONS = ["BCA", "BBA", "MBA", "B.Tech", "MCA", "B.Com", "B.Sc. IT", "BA Psychology"];
-export const LEAD_STATUSES: LeadStatus[] = ["New", "Contacted", "Follow-up", "Converted", "Lost"];
+export const LEAD_STATUSES: LeadStatus[] = ["New", "Contacted", "In progress", "Converted", "Lost"];
 export const LEAD_SOURCES: LeadSource[] = ["Website", "Consultant referral", "WhatsApp", "Walk-in", "Education fair"];
 
 function toLocalDate(date: Date): string {
@@ -49,21 +49,21 @@ const leadSeed: Array<{
   { id: "lead-1001", studentName: "Aarav Patel", phone: "+91 98765 11001", email: "aarav.patel@example.com", course: "BCA", source: "Website", page: "/courses/bca", referrer: null, assignee: "consultant-aditi", status: "New", age: 0, contacted: null, city: "Mumbai", note: "Asked about eligibility after Class 12." },
   { id: "lead-1002", studentName: "Sana Khan", phone: "+91 98765 11002", email: "sana.khan@example.com", course: "MBA", source: "Consultant referral", page: "/apply", referrer: "consultant-rahul", assignee: "consultant-priya", status: "Contacted", age: 1, contacted: 0, city: "Pune", note: "Prefers an evening call." },
   { id: "lead-1003", studentName: "Ishita Desai", phone: "+91 98765 11003", email: "ishita.desai@example.com", course: "B.Tech", source: "Website", page: "/courses/b-tech", referrer: null, assignee: null, status: "New", age: 1, contacted: null, city: "Ahmedabad" },
-  { id: "lead-1004", studentName: "Kabir Rao", phone: "+91 98765 11004", email: "kabir.rao@example.com", course: "MCA", source: "WhatsApp", page: "/", referrer: null, assignee: "consultant-vivek", status: "Follow-up", age: 2, contacted: 1, city: "Bengaluru", note: "Requested a call after 5 PM." },
+  { id: "lead-1004", studentName: "Kabir Rao", phone: "+91 98765 11004", email: "kabir.rao@example.com", course: "MCA", source: "WhatsApp", page: "/", referrer: null, assignee: "consultant-vivek", status: "In progress", age: 2, contacted: 1, city: "Bengaluru", note: "Requested a call after 5 PM." },
   { id: "lead-1005", studentName: "Meera Nair", phone: "+91 98765 11005", email: "meera.nair@example.com", course: "BBA", source: "Consultant referral", page: "/apply", referrer: "consultant-aditi", assignee: "consultant-rahul", status: "Converted", age: 3, contacted: 2, city: "Navi Mumbai" },
   { id: "lead-1006", studentName: "Vivaan Joshi", phone: "+91 98765 11006", email: "vivaan.joshi@example.com", course: "B.Com", source: "Website", page: "/courses/b-com", referrer: null, assignee: "consultant-priya", status: "Contacted", age: 4, contacted: 3, city: "Thane" },
   { id: "lead-1007", studentName: "Ananya Reddy", phone: "+91 98765 11007", email: "ananya.reddy@example.com", course: "B.Sc. IT", source: "Education fair", page: "/", referrer: null, assignee: "consultant-vivek", status: "Lost", age: 5, contacted: 4, city: "Hyderabad" },
-  { id: "lead-1008", studentName: "Reyansh Shah", phone: "+91 98765 11008", email: "reyansh.shah@example.com", course: "BCA", source: "Consultant referral", page: "/apply", referrer: "consultant-priya", assignee: "consultant-priya", status: "Follow-up", age: 6, contacted: 3, city: "Surat" },
+  { id: "lead-1008", studentName: "Reyansh Shah", phone: "+91 98765 11008", email: "reyansh.shah@example.com", course: "BCA", source: "Consultant referral", page: "/apply", referrer: "consultant-priya", assignee: "consultant-priya", status: "In progress", age: 6, contacted: 3, city: "Surat" },
   { id: "lead-1009", studentName: "Diya Menon", phone: "+91 98765 11009", email: "diya.menon@example.com", course: "MBA", source: "Website", page: "/courses/mba", referrer: null, assignee: "consultant-aditi", status: "Converted", age: 7, contacted: 6, city: "Kochi" },
   { id: "lead-1010", studentName: "Arjun Chawla", phone: "+91 98765 11010", email: "arjun.chawla@example.com", course: "B.Tech", source: "Walk-in", page: "Office enquiry", referrer: null, assignee: "consultant-rahul", status: "Contacted", age: 8, contacted: 5, city: "Nashik" },
   { id: "lead-1011", studentName: "Tara Sethi", phone: "+91 98765 11011", email: "tara.sethi@example.com", course: "MCA", source: "Consultant referral", page: "/apply", referrer: "consultant-vivek", assignee: "consultant-aditi", status: "New", age: 9, contacted: null, city: "Jaipur" },
-  { id: "lead-1012", studentName: "Rohan Kulkarni", phone: "+91 98765 11012", email: "rohan.kulkarni@example.com", course: "BBA", source: "Website", page: "/courses/bba", referrer: null, assignee: "consultant-priya", status: "Follow-up", age: 10, contacted: 8, city: "Mumbai" },
+  { id: "lead-1012", studentName: "Rohan Kulkarni", phone: "+91 98765 11012", email: "rohan.kulkarni@example.com", course: "BBA", source: "Website", page: "/courses/bba", referrer: null, assignee: "consultant-priya", status: "In progress", age: 10, contacted: 8, city: "Mumbai" },
   { id: "lead-1013", studentName: "Myra Thomas", phone: "+91 98765 11013", email: "myra.thomas@example.com", course: "BA Psychology", source: "WhatsApp", page: "/", referrer: null, assignee: "consultant-neha", status: "Contacted", age: 12, contacted: 10, city: "Chennai" },
   { id: "lead-1014", studentName: "Aditya Verma", phone: "+91 98765 11014", email: "aditya.verma@example.com", course: "BCA", source: "Consultant referral", page: "/apply", referrer: "consultant-rahul", assignee: "consultant-vivek", status: "Converted", age: 13, contacted: 12, city: "Indore" },
   { id: "lead-1015", studentName: "Sara Fernandes", phone: "+91 98765 11015", email: "sara.fernandes@example.com", course: "B.Com", source: "Website", page: "/courses/b-com", referrer: null, assignee: null, status: "New", age: 14, contacted: null, city: "Goa" },
   { id: "lead-1016", studentName: "Krish Malhotra", phone: "+91 98765 11016", email: "krish.malhotra@example.com", course: "MBA", source: "Consultant referral", page: "/apply", referrer: "consultant-aditi", assignee: "consultant-rahul", status: "Lost", age: 16, contacted: 14, city: "Delhi" },
   { id: "lead-1017", studentName: "Nisha Shetty", phone: "+91 98765 11017", email: "nisha.shetty@example.com", course: "B.Tech", source: "Website", page: "/courses/b-tech", referrer: null, assignee: "consultant-vivek", status: "Contacted", age: 18, contacted: 16, city: "Mangaluru" },
-  { id: "lead-1018", studentName: "Devansh Gupta", phone: "+91 98765 11018", email: "devansh.gupta@example.com", course: "MCA", source: "Education fair", page: "Education fair", referrer: null, assignee: "consultant-priya", status: "Follow-up", age: 20, contacted: 18, city: "Nagpur" },
+  { id: "lead-1018", studentName: "Devansh Gupta", phone: "+91 98765 11018", email: "devansh.gupta@example.com", course: "MCA", source: "Education fair", page: "Education fair", referrer: null, assignee: "consultant-priya", status: "In progress", age: 20, contacted: 18, city: "Nagpur" },
   { id: "lead-1019", studentName: "Aisha Das", phone: "+91 98765 11019", email: "aisha.das@example.com", course: "BBA", source: "Consultant referral", page: "/apply", referrer: "consultant-priya", assignee: null, status: "New", age: 22, contacted: null, city: "Kolkata" },
   { id: "lead-1020", studentName: "Omkar Patil", phone: "+91 98765 11020", email: "omkar.patil@example.com", course: "BCA", source: "Website", page: "/courses/bca", referrer: null, assignee: "consultant-aditi", status: "Converted", age: 24, contacted: 22, city: "Pune" },
   { id: "lead-1021", studentName: "Ira Banerjee", phone: "+91 98765 11021", email: "ira.banerjee@example.com", course: "B.Sc. IT", source: "Consultant referral", page: "/apply", referrer: "consultant-vivek", assignee: "consultant-vivek", status: "Contacted", age: 27, contacted: 25, city: "Kolkata" },
@@ -72,7 +72,7 @@ const leadSeed: Array<{
   { id: "lead-1024", studentName: "Neil D'Souza", phone: "+91 98765 11024", email: "neil.dsouza@example.com", course: "B.Tech", source: "Website", page: "/courses/b-tech", referrer: null, assignee: "consultant-priya", status: "Contacted", age: 41, contacted: 39, city: "Mumbai" },
   { id: "lead-1025", studentName: "Riya Ghosh", phone: "+91 98765 11025", email: "riya.ghosh@example.com", course: "B.Com", source: "Walk-in", page: "Office enquiry", referrer: null, assignee: "consultant-neha", status: "New", age: 48, contacted: null, city: "Thane" },
   { id: "lead-1026", studentName: "Kunal Sinha", phone: "+91 98765 11026", email: "kunal.sinha@example.com", course: "BCA", source: "Consultant referral", page: "/apply", referrer: "consultant-rahul", assignee: "consultant-priya", status: "Converted", age: 53, contacted: 50, city: "Ahmedabad" },
-  { id: "lead-1027", studentName: "Mira Roy", phone: "+91 98765 11027", email: "mira.roy@example.com", course: "MBA", source: "Website", page: "/courses/mba", referrer: null, assignee: "consultant-aditi", status: "Follow-up", age: 61, contacted: 57, city: "Bengaluru" },
+  { id: "lead-1027", studentName: "Mira Roy", phone: "+91 98765 11027", email: "mira.roy@example.com", course: "MBA", source: "Website", page: "/courses/mba", referrer: null, assignee: "consultant-aditi", status: "In progress", age: 61, contacted: 57, city: "Bengaluru" },
   { id: "lead-1028", studentName: "Siddharth Pillai", phone: "+91 98765 11028", email: "siddharth.pillai@example.com", course: "BBA", source: "Consultant referral", page: "/apply", referrer: "consultant-aditi", assignee: "consultant-vivek", status: "Lost", age: 72, contacted: 68, city: "Kochi" },
 ];
 
@@ -94,42 +94,12 @@ function createLead(seed: (typeof leadSeed)[number]): Lead {
   };
 }
 
-function initialFollowUps(leads: Lead[]): FollowUp[] {
-  const map: Array<[string, number, string, string, FollowUpStatus]> = [
-    ["lead-1002", -1, "11:30", "Check whether she has shortlisted MBA specialisations.", "Pending"],
-    ["lead-1004", 0, "14:00", "Call after 5 PM as requested.", "Pending"],
-    ["lead-1008", 1, "10:30", "Share BCA course overview and eligibility checks.", "Pending"],
-    ["lead-1012", 0, "16:15", "Follow up on BBA course questions.", "Pending"],
-    ["lead-1016", -2, "12:00", "Reconfirm interest and preferred city.", "Pending"],
-    ["lead-1018", 2, "13:45", "Discuss MCA admission timeline.", "Pending"],
-    ["lead-1021", 4, "15:00", "Send B.Sc. IT guide and check next steps.", "Pending"],
-    ["lead-1023", -3, "10:00", "Confirm onboarding documents were received.", "Completed"],
-    ["lead-1025", 5, "11:15", "First follow-up after office visit.", "Pending"],
-    ["lead-1027", 3, "17:00", "Ask if she would like an admissions information call.", "Pending"],
-  ];
-  return map.map(([leadId, delta, time, notes, status], index) => {
-    const lead = leads.find((item) => item.id === leadId);
-    const date = dateOffset(Number(delta));
-    return {
-      id: `follow-up-${index + 1}`,
-      leadId: String(leadId),
-      consultantId: lead?.assignedConsultantId ?? null,
-      date,
-      time: String(time),
-      notes: String(notes),
-      status: status as FollowUpStatus,
-      createdAt: shiftedDate(-Math.max(Number(delta), 0), 9, 0),
-      completedAt: status === "Completed" ? shiftedDate(Number(delta), 10, 10) : null,
-    };
-  });
-}
-
 function initialActivities(leads: Lead[]): Activity[] {
   return [
     { id: "activity-1", leadId: "lead-1001", consultantId: null, type: "lead-created", title: "New website enquiry received", description: "Aarav Patel asked about the BCA course guide.", createdAt: leads[0].createdAt, actor: "Website form" },
     { id: "activity-2", leadId: "lead-1002", consultantId: "consultant-rahul", type: "lead-created", title: "Referral lead added", description: "Sana Khan was referred by Rahul Mehta and assigned to Priya Iyer.", createdAt: leads[1].createdAt, actor: "Rahul Mehta" },
     { id: "activity-3", leadId: "lead-1005", consultantId: "consultant-aditi", type: "status-changed", title: "Lead converted", description: "Meera Nair moved to Converted.", createdAt: shiftedDate(-2, 12, 30), actor: "Aditi Shah" },
-    { id: "activity-4", leadId: "lead-1004", consultantId: "consultant-vivek", type: "follow-up", title: "Follow-up scheduled", description: "A call was scheduled for Kabir Rao.", createdAt: shiftedDate(-1, 11, 10), actor: "Vivek Nair" },
+    { id: "activity-4", leadId: "lead-1004", consultantId: "consultant-vivek", type: "note-added", title: "Counselor note logged", description: "Counselor note logged for Kabir Rao.", createdAt: shiftedDate(-1, 11, 10), actor: "Vivek Nair" },
     { id: "activity-5", leadId: null, consultantId: "consultant-priya", type: "consultant", title: "Referral link shared", description: "Priya Iyer shared her consultant referral link.", createdAt: shiftedDate(-2, 16, 20), actor: "Priya Iyer" },
     { id: "activity-6", leadId: "lead-1007", consultantId: "consultant-vivek", type: "note-added", title: "Lead marked as not proceeding", description: "Ananya Reddy is no longer exploring this intake.", createdAt: shiftedDate(-4, 15, 0), actor: "Vivek Nair" },
     { id: "activity-7", leadId: "lead-1006", consultantId: "consultant-priya", type: "assigned", title: "Lead assigned", description: "Vivaan Joshi was assigned to Priya Iyer.", createdAt: shiftedDate(-3, 13, 30), actor: "Ananya Sharma" },
@@ -164,7 +134,6 @@ export function createInitialAdminState(courses: Course[] = []): AdminState {
     referralCodePrefix: "",
     referralCookieDays: 30,
     emailNotifications: true,
-    followUpReminders: true,
     weeklySummary: false,
   };
   return {
@@ -172,7 +141,6 @@ export function createInitialAdminState(courses: Course[] = []): AdminState {
     leads,
     consultants,
     referrals,
-    followUps: initialFollowUps(leads),
     activities: initialActivities(leads),
     websiteContent,
     settings,
@@ -197,7 +165,8 @@ export function getReferralUrl(baseUrl: string, code: string): string {
   return `${cleanBase}/apply?ref=${encodeURIComponent(code)}`;
 }
 
-export function getLeadWhatsAppHref(phone: string, studentName: string, course: string): string | null {
+export function getLeadWhatsAppHref(phone?: string | null, studentName?: string | null, course?: string | null): string | null {
+  if (!phone || typeof phone !== "string") return null;
   const digits = phone.replace(/\D/g, "");
   if (!digits) return null;
   let normalized = digits;
@@ -208,7 +177,9 @@ export function getLeadWhatsAppHref(phone: string, studentName: string, course: 
     // Already includes India's country code; keep it once.
   }
   if (normalized.length < 11 || normalized.length > 15) return null;
-  const message = `Hi ${studentName}, I'm reaching out from Edusaaathi about your interest in ${course}. Let me know a suitable time to connect.`;
+  const name = (studentName && typeof studentName === "string" ? studentName.trim() : "") || "there";
+  const courseName = (course && typeof course === "string" ? course.trim() : "") || "our programs";
+  const message = `Hi ${name}, I'm reaching out from Edusaaathi about your interest in ${courseName}. Let me know a suitable time to connect.`;
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 

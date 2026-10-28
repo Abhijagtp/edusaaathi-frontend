@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { hasAdminSession } from "@/lib/auth";
+import { backendFetch } from "@/lib/backend-client";
 import { getCourses, saveCourses } from "@/lib/data-store";
 import { slugify } from "@/lib/format";
 import type { Course } from "@/lib/types";
@@ -23,8 +24,36 @@ function imageValue(value: unknown): string | null {
   }
 }
 
+function mapBackendCourse(c: any): Course {
+  return {
+    id: String(c.id),
+    slug: c.slug,
+    name: c.name || c.slug,
+    shortDescription: c.short_description || "",
+    description: c.description || "",
+    duration: c.duration || "Typically 3 years",
+    eligibility: c.eligibility || "10+2 from a recognised board",
+    fees: c.fees || null,
+    highlights: Array.isArray(c.highlights) ? c.highlights : [],
+    admissionInfo: c.admission_info || "Consult official admissions prospectus",
+    image: c.image || null,
+    imageAlt: c.image_alt || null,
+    published: c.published !== false,
+    updatedAt: c.updated_at || new Date().toISOString(),
+  };
+}
+
 export async function GET() {
   if (!(await hasAdminSession())) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+
+  // 1. Attempt to fetch from Django backend
+  const backendRes = await backendFetch("/api/courses/");
+  if (backendRes.ok && backendRes.data?.courses) {
+    const courses = backendRes.data.courses.map(mapBackendCourse);
+    return NextResponse.json({ courses }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  }
+
+  // 2. Fallback to local store
   const courses = await getCourses(true);
   return NextResponse.json({ courses }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
@@ -52,15 +81,32 @@ export async function POST(request: Request) {
   const image = imageValue(body.image);
   const imageAlt = text(body.imageAlt, 160) || null;
 
-  if (!name || !slug || !shortDescription || !description || !duration || !eligibility || !admissionInfo) {
+  if (!name || !slug) {
     return NextResponse.json({ error: "Complete the required course fields before saving." }, { status: 400 });
   }
-  if (body.image && !image) return NextResponse.json({ error: "Use a valid http(s) image URL or a site-relative path." }, { status: 400 });
-  const courses = await getCourses(true);
-  if (courses.some((course) => course.slug === slug)) {
-    return NextResponse.json({ error: "A course with this URL slug already exists." }, { status: 409 });
-  }
 
+  // Also save to Django backend
+  const backendPayload = {
+    name,
+    slug,
+    short_description: shortDescription,
+    description,
+    duration,
+    eligibility,
+    fees: feesInput || "",
+    highlights,
+    admission_info: admissionInfo,
+    image: image || "",
+    image_alt: imageAlt || "",
+    published: Boolean(body.published),
+  };
+
+  await backendFetch("/api/courses/", {
+    method: "POST",
+    body: JSON.stringify(backendPayload),
+  }).catch(() => null);
+
+  const courses = await getCourses(true);
   const course: Course = {
     id: randomUUID(),
     slug,
@@ -77,6 +123,6 @@ export async function POST(request: Request) {
     published: Boolean(body.published),
     updatedAt: new Date().toISOString(),
   };
-  await saveCourses([...courses, course]);
+  await saveCourses([...courses.filter((c) => c.slug !== slug), course]);
   return NextResponse.json({ course }, { status: 201 });
 }

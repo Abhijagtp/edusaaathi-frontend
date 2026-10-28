@@ -1,9 +1,8 @@
-export const CONSULTANT_LEAD_STATUSES = ["New", "Contacted", "Follow-up", "Converted", "Lost"] as const;
+export const CONSULTANT_LEAD_STATUSES = ["New", "Contacted", "In progress", "Converted", "Lost"] as const;
 export type ConsultantLeadStatus = (typeof CONSULTANT_LEAD_STATUSES)[number];
 
 export const CONSULTANT_LEAD_SOURCES = ["Website", "Consultant referral", "WhatsApp", "Walk-in", "Education fair"] as const;
 export type ConsultantLeadSource = (typeof CONSULTANT_LEAD_SOURCES)[number];
-export type ConsultantFollowUpStatus = "Pending" | "Completed";
 
 export type ConsultantProfile = {
   id: string;
@@ -36,7 +35,6 @@ export type ConsultantLead = {
   status: ConsultantLeadStatus;
   createdAt: string;
   lastContactedAt: string | null;
-  nextFollowUpAt: string | null;
   convertedAt: string | null;
   updatedAt: string;
   city?: string;
@@ -44,22 +42,9 @@ export type ConsultantLead = {
   notes: ConsultantNote[];
 };
 
-export type ConsultantFollowUp = {
-  id: string;
-  leadId: string;
-  consultantId: string;
-  scheduledAt: string;
-  note: string;
-  status: ConsultantFollowUpStatus;
-  completedAt: string | null;
-  createdAt: string;
-};
-
 export type ConsultantActivityType =
   | "lead-assigned"
   | "status-updated"
-  | "follow-up-scheduled"
-  | "follow-up-completed"
   | "lead-converted"
   | "note-added";
 
@@ -85,15 +70,7 @@ export type ConsultantPortalState = {
   profile: ConsultantProfile;
   leads: ConsultantLead[];
   referralLeads: ReferralLeadSummary[];
-  followUps: ConsultantFollowUp[];
   activities: ConsultantActivity[];
-};
-
-export type ConsultantFollowUpDraft = {
-  leadId: string;
-  date: string;
-  time: string;
-  note: string;
 };
 
 export type ConsultantProfileDraft = Pick<ConsultantProfile, "fullName" | "email" | "phone">;

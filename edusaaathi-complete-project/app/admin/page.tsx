@@ -1,10 +1,18 @@
 import { redirect } from "next/navigation";
-import { hasAdminSession } from "@/lib/auth";
-import { AdminDashboard } from "@/components/admin-dashboard";
+import { hasAdminSession, getAdminUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  if (!(await hasAdminSession())) redirect("/admin/login");
-  return <AdminDashboard />;
+  if (!(await hasAdminSession())) {
+    redirect("/admin/login");
+  }
+
+  const user = await getAdminUser();
+  const role = String(user?.role || "").toUpperCase();
+  if (role === "CONSULTANT" || role === "COUNSELOR") {
+    redirect("/consultant");
+  }
+
+  redirect("/adminuser");
 }

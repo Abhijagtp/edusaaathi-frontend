@@ -27,6 +27,16 @@ export function EnquiryPopup() {
       delay = window.setTimeout(() => setOpen(true), 11500);
     }
 
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlRef = searchParams.get("ref");
+      if (urlRef) {
+        window.localStorage.setItem("coursesathi-ref", urlRef);
+      }
+    } catch {
+      // storage unavailable
+    }
+
     const requestOpen = (event: Event) => {
       const customEvent = event as CustomEvent<PopupRequest>;
       if (customEvent.detail?.courseSlug) setCourseSlug(customEvent.detail.courseSlug);
@@ -77,11 +87,19 @@ export function EnquiryPopup() {
     setState("saving");
     setMessage("");
     const form = new FormData(event.currentTarget);
+    let ref = "";
+    try {
+      const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      ref = searchParams?.get("ref") || window.localStorage.getItem("coursesathi-ref") || "";
+    } catch {
+      // storage unavailable
+    }
     const payload = {
       fullName: String(form.get("fullName") || ""),
       mobile: String(form.get("mobile") || ""),
       courseSlug,
       city: String(form.get("city") || ""),
+      ref,
     };
     try {
       const response = await fetch("/api/enquiries", {

@@ -2,7 +2,7 @@ import { SITE_URL } from "@/lib/config";
 /** Replaceable client-side service boundary for the consultant portal demo. UI components consume it through ConsultantProvider; this is not a backend or authorization layer. */
 import {
   CONSULTANT_LEAD_STATUSES,
-  type ConsultantActivity, type ConsultantFollowUp, type ConsultantFollowUpDraft, type ConsultantLead, type ConsultantLeadStatus,
+  type ConsultantActivity, type ConsultantLead, type ConsultantLeadStatus,
   type ConsultantLeadUpdate, type ConsultantNote, type ConsultantPortalState, type ConsultantProfileDraft, type ReferralLeadSummary,
 } from "./types";
 
@@ -32,14 +32,9 @@ export function consultantLocalTime(value: string | Date): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-export function consultantDateTime(date: string, time: string): string {
-  const parsed = new Date(`${date}T${time}:00`);
-  if (Number.isNaN(parsed.getTime())) throw new Error("Enter a valid follow-up date and time.");
-  return parsed.toISOString();
-}
-
 /** Normalize Indian mobile numbers once for `tel:`/`wa.me`; 10-digit local numbers get +91. */
-export function normalizeConsultantPhone(phone: string): string | null {
+export function normalizeConsultantPhone(phone?: string | null): string | null {
+  if (!phone || typeof phone !== "string") return null;
   const digits = phone.replace(/\D/g, "");
   if (!digits) return null;
   let normalized = digits;
@@ -50,16 +45,19 @@ export function normalizeConsultantPhone(phone: string): string | null {
   return `+${normalized}`;
 }
 
-export function getConsultantPhoneHref(phone: string): string | null {
+export function getConsultantPhoneHref(phone?: string | null): string | null {
   const normalized = normalizeConsultantPhone(phone);
   return normalized ? `tel:${normalized}` : null;
 }
 
-export function getConsultantWhatsAppHref(phone: string, studentName: string, course: string, consultantName: string): string | null {
+export function getConsultantWhatsAppHref(phone?: string | null, studentName?: string | null, course?: string | null, consultantName?: string | null): string | null {
   const normalized = normalizeConsultantPhone(phone);
   if (!normalized) return null;
-  const firstName = studentName.trim().split(/\s+/)[0] || studentName;
-  const message = `Hi ${firstName}, this is ${consultantName} from Edusaaathi. I am following up on your interest in ${course}. Let me know a suitable time to connect.`;
+  const name = (studentName && typeof studentName === "string" ? studentName.trim() : "") || "there";
+  const firstName = name.split(/\s+/)[0] || name;
+  const cName = (consultantName && typeof consultantName === "string" ? consultantName.trim() : "") || "Consultant";
+  const courseName = (course && typeof course === "string" ? course.trim() : "") || "courses";
+  const message = `Hi ${firstName}, this is ${cName} from Edusaaathi regarding your interest in ${courseName}. Let me know a suitable time to connect.`;
   return `https://wa.me/${normalized.replace(/^\+/, "")}?text=${encodeURIComponent(message)}`;
 }
 
@@ -83,15 +81,15 @@ type LeadSeed = {
 const leadSeeds: LeadSeed[] = [
   { id: "lead-2101", fullName: "Riya Shah", phone: "+91 98201 44011", email: "riya.shah@example.com", interestedCourse: "BCA", source: "Website", referrer: null, status: "New", age: 2, contactedAge: null, city: "Mumbai", education: "Class 12 · Commerce", note: "Asked for the upcoming intake timeline." },
   { id: "lead-2102", fullName: "Rohan Verma", phone: "+91 98702 33114", email: "rohan.verma@example.com", interestedCourse: "MBA", source: "Consultant referral", referrer: "rahul", status: "Contacted", age: 7, contactedAge: 3, city: "Pune", education: "B.Com · 2024", note: "Prefers a call after 6 PM." },
-  { id: "lead-2103", fullName: "Myra Iyer", phone: "+91 97690 85216", email: "myra.iyer@example.com", interestedCourse: "BBA", source: "Website", referrer: null, status: "Follow-up", age: 11, contactedAge: 8, city: "Thane", education: "Class 12 · Arts", note: "Compare the BBA and integrated management options." },
+  { id: "lead-2103", fullName: "Myra Iyer", phone: "+91 97690 85216", email: "myra.iyer@example.com", interestedCourse: "BBA", source: "Website", referrer: null, status: "In progress", age: 11, contactedAge: 8, city: "Thane", education: "Class 12 · Arts", note: "Compare the BBA and integrated management options." },
   { id: "lead-2104", fullName: "Kabir Nair", phone: "+91 98920 71104", email: "kabir.nair@example.com", interestedCourse: "MCA", source: "Consultant referral", referrer: "rahul", status: "Converted", age: 24, contactedAge: 15, convertedAge: 12, city: "Navi Mumbai", education: "B.Sc. IT · 2025", note: "Admission documents received." },
   { id: "lead-2105", fullName: "Sana Kapoor", phone: "+91 98193 27108", email: "sana.kapoor@example.com", interestedCourse: "B.Com", source: "WhatsApp", referrer: null, status: "Contacted", age: 31, contactedAge: 25, city: "Mumbai", education: "Class 12 · Commerce" },
   { id: "lead-2106", fullName: "Arjun Rao", phone: "+91 99204 09117", email: "arjun.rao@example.com", interestedCourse: "B.Tech", source: "Walk-in", referrer: null, status: "Lost", age: 45, contactedAge: 39, city: "Panvel", education: "Diploma · Engineering", note: "Chose a different programme this intake." },
   { id: "lead-2107", fullName: "Priya Menon", phone: "+91 98670 14520", email: "priya.menon@example.com", interestedCourse: "BA Psychology", source: "Education fair", referrer: null, status: "New", age: 53, contactedAge: null, city: "Mumbai", education: "Class 12 · Humanities" },
-  { id: "lead-2108", fullName: "Dev Patel", phone: "+91 98331 56222", email: "dev.patel@example.com", interestedCourse: "BCA", source: "Consultant referral", referrer: "aditi", status: "Follow-up", age: 68, contactedAge: 60, city: "Surat", education: "Class 12 · Science", note: "Waiting for a fee comparison." },
+  { id: "lead-2108", fullName: "Dev Patel", phone: "+91 98331 56222", email: "dev.patel@example.com", interestedCourse: "BCA", source: "Consultant referral", referrer: "aditi", status: "In progress", age: 68, contactedAge: 60, city: "Surat", education: "Class 12 · Science", note: "Waiting for a fee comparison." },
   { id: "lead-2109", fullName: "Ananya Desai", phone: "+91 98198 43027", email: "ananya.desai@example.com", interestedCourse: "MBA", source: "Website", referrer: null, status: "Contacted", age: 81, contactedAge: 75, city: "Mumbai", education: "BBA · 2023" },
   { id: "lead-2110", fullName: "Ishita Kulkarni", phone: "+91 99201 74108", email: "ishita.kulkarni@example.com", interestedCourse: "BBA", source: "Consultant referral", referrer: "rahul", status: "Converted", age: 99, contactedAge: 91, convertedAge: 86, city: "Pune", education: "Class 12 · Commerce", note: "Enrolled for the July intake." },
-  { id: "lead-2111", fullName: "Omkar Shah", phone: "+91 98202 63041", email: "omkar.shah@example.com", interestedCourse: "B.Sc. IT", source: "Website", referrer: null, status: "Follow-up", age: 117, contactedAge: 109, city: "Mumbai", education: "Class 12 · Science" },
+  { id: "lead-2111", fullName: "Omkar Shah", phone: "+91 98202 63041", email: "omkar.shah@example.com", interestedCourse: "B.Sc. IT", source: "Website", referrer: null, status: "In progress", age: 117, contactedAge: 109, city: "Mumbai", education: "Class 12 · Science" },
   { id: "lead-2112", fullName: "Tara Nair", phone: "+91 98675 51638", email: "tara.nair@example.com", interestedCourse: "MCA", source: "Consultant referral", referrer: "rahul", status: "Contacted", age: 132, contactedAge: 124, city: "Navi Mumbai", education: "BCA · 2025" },
   { id: "lead-2113", fullName: "Vihaan Iyer", phone: "+91 97691 80355", email: "vihaan.iyer@example.com", interestedCourse: "BCA", source: "Website", referrer: null, status: "New", age: 153, contactedAge: null, city: "Thane", education: "Class 12 · Science" },
   { id: "lead-2114", fullName: "Zoya Sheikh", phone: "+91 98925 19064", email: "zoya.sheikh@example.com", interestedCourse: "MBA", source: "Consultant referral", referrer: "rahul", status: "Converted", age: 176, contactedAge: 167, convertedAge: 163, city: "Mumbai", education: "B.Com · 2023", note: "Joined the weekend MBA cohort." },
@@ -116,7 +114,6 @@ function createLead(seed: LeadSeed): ConsultantLead {
     status: seed.status,
     createdAt,
     lastContactedAt,
-    nextFollowUpAt: null,
     convertedAt: seed.convertedAge === undefined ? null : dateTimeAt(-seed.convertedAge, 12, 10),
     updatedAt: lastContactedAt ?? createdAt,
     city: seed.city,
@@ -127,13 +124,6 @@ function createLead(seed: LeadSeed): ConsultantLead {
 
 function referralOnlySummary(id: string, fullName: string, age: number, interestedCourse: string, currentStatus: ConsultantLeadStatus): ReferralLeadSummary {
   return { id, fullName, capturedAt: dateTimeAt(-age, 9, 40), interestedCourse, currentStatus, authorizedLeadId: null };
-}
-
-function localSchedule(offset: number, hour: number, minute: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
 }
 
 function makeActivity(id: string, leadId: string, activityType: ConsultantActivity["activityType"], description: string, offset: number, hour: number): ConsultantActivity {
@@ -163,37 +153,21 @@ export function createInitialConsultantState(): ConsultantPortalState {
     })),
     referralOnlySummary("referral-3001", "Aarav Desai", 16, "BCA", "New"),
     referralOnlySummary("referral-3002", "Meera Patel", 43, "MBA", "Converted"),
-    referralOnlySummary("referral-3003", "Siddhi Kamat", 67, "B.Com", "Follow-up"),
+    referralOnlySummary("referral-3003", "Siddhi Kamat", 67, "B.Com", "In progress"),
   ].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
-
-  const followUps: ConsultantFollowUp[] = [
-    { id: "follow-up-2101", leadId: "lead-2101", consultantId: profile.id, scheduledAt: localSchedule(0, 10, 30), note: "Call to confirm preferred start date and share the BCA checklist.", status: "Pending", completedAt: null, createdAt: dateTimeAt(-1, 16, 0) },
-    { id: "follow-up-2103", leadId: "lead-2103", consultantId: profile.id, scheduledAt: localSchedule(0, 14, 0), note: "Compare BBA options and answer her intake questions.", status: "Pending", completedAt: null, createdAt: dateTimeAt(-2, 12, 0) },
-    { id: "follow-up-2105", leadId: "lead-2105", consultantId: profile.id, scheduledAt: localSchedule(-1, 11, 30), note: "Share the fee structure requested on WhatsApp.", status: "Pending", completedAt: null, createdAt: dateTimeAt(-3, 12, 0) },
-    { id: "follow-up-2109", leadId: "lead-2109", consultantId: profile.id, scheduledAt: localSchedule(-2, 15, 0), note: "Ask whether she would like to review MBA specialisations.", status: "Pending", completedAt: null, createdAt: dateTimeAt(-4, 12, 0) },
-    { id: "follow-up-2108", leadId: "lead-2108", consultantId: profile.id, scheduledAt: localSchedule(1, 11, 0), note: "Send the updated BCA fee comparison.", status: "Pending", completedAt: null, createdAt: dateTimeAt(-1, 13, 0) },
-    { id: "follow-up-2111", leadId: "lead-2111", consultantId: profile.id, scheduledAt: localSchedule(4, 16, 30), note: "Check on the B.Sc. IT prospectus and eligibility.", status: "Pending", completedAt: null, createdAt: dateTimeAt(-1, 14, 0) },
-    { id: "follow-up-2102-done", leadId: "lead-2102", consultantId: profile.id, scheduledAt: localSchedule(-5, 17, 0), note: "Initial MBA discovery call completed.", status: "Completed", completedAt: dateTimeAt(-5, 17, 35), createdAt: dateTimeAt(-8, 11, 0) },
-    { id: "follow-up-2104-done", leadId: "lead-2104", consultantId: profile.id, scheduledAt: localSchedule(-12, 12, 0), note: "Confirm MCA offer acceptance.", status: "Completed", completedAt: dateTimeAt(-12, 12, 45), createdAt: dateTimeAt(-16, 10, 0) },
-  ];
-
-  for (const lead of leads) {
-    const next = followUps.filter((item) => item.leadId === lead.id && item.status === "Pending").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0];
-    lead.nextFollowUpAt = next?.scheduledAt ?? null;
-  }
 
   const activities: ConsultantActivity[] = [
     makeActivity("activity-2101", "lead-2101", "lead-assigned", "A new BCA enquiry was assigned to you.", 0, 9),
-    makeActivity("activity-2103", "lead-2103", "status-updated", "Status updated to Follow-up after the first call.", 1, 15),
-    makeActivity("activity-2102", "lead-2102", "follow-up-completed", "Completed the initial MBA discovery call.", 2, 17),
+    makeActivity("activity-2103", "lead-2103", "note-added", "Counselor note logged for Myra Iyer.", 1, 15),
+    makeActivity("activity-2102", "lead-2102", "note-added", "Initial MBA discovery call note logged.", 2, 17),
     makeActivity("activity-2104", "lead-2104", "lead-converted", "Kabir confirmed his MCA admission.", 12, 13),
-    makeActivity("activity-2108", "lead-2108", "follow-up-scheduled", "Rescheduled a fee-comparison conversation.", 1, 13),
+    makeActivity("activity-2108", "lead-2108", "note-added", "Shared updated fee comparison note.", 1, 13),
     makeActivity("activity-2110", "lead-2110", "lead-converted", "Ishita enrolled for the July BBA intake.", 86, 12),
     makeActivity("activity-2114", "lead-2114", "lead-converted", "Zoya joined the weekend MBA cohort.", 163, 12),
     makeActivity("activity-2116", "lead-2116", "lead-assigned", "A B.Tech enquiry was added to your queue.", 212, 10),
   ].filter((item) => leadMap.has(item.leadId));
 
-  return { profile, leads, referralLeads, followUps, activities };
+  return { profile, leads, referralLeads, activities };
 }
 
 /** Validate persisted mock data and re-scope it to the one mock consultant before exposing it to the UI. */
@@ -218,23 +192,14 @@ export function restoreConsultantState(raw: unknown): ConsultantPortalState {
       ...original,
       status,
       lastContactedAt: lead.lastContactedAt === null || typeof lead.lastContactedAt === "string" ? lead.lastContactedAt : original.lastContactedAt,
-      nextFollowUpAt: typeof lead.nextFollowUpAt === "string" ? lead.nextFollowUpAt : null,
       convertedAt: status === "Converted" ? (typeof lead.convertedAt === "string" ? lead.convertedAt : original.convertedAt) : null,
       updatedAt: typeof lead.updatedAt === "string" ? lead.updatedAt : original.updatedAt,
       notes,
     };
   });
   const leadIds = new Set(leads.map((lead) => lead.id));
-  const followUps = Array.isArray(saved.followUps) ? saved.followUps.filter((item): item is ConsultantFollowUp => Boolean(
-    item && typeof item === "object" && item.consultantId === MOCK_CONSULTANT_ID && leadIds.has(item.leadId) && typeof item.scheduledAt === "string",
-  )) : seed.followUps;
-  const scopedLeads = leads.map((lead) => ({
-    ...lead,
-    nextFollowUpAt: followUps.filter((item) => item.leadId === lead.id && item.status === "Pending")
-      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0]?.scheduledAt ?? null,
-  }));
   const referralLeads = seed.referralLeads.map((item) => {
-    const lead = item.authorizedLeadId ? scopedLeads.find((candidate) => candidate.id === item.authorizedLeadId) : undefined;
+    const lead = item.authorizedLeadId ? leads.find((candidate) => candidate.id === item.authorizedLeadId) : undefined;
     return lead ? { ...item, currentStatus: lead.status } : item;
   });
   const activities = Array.isArray(saved.activities) ? saved.activities.filter((item): item is ConsultantActivity => Boolean(
@@ -248,16 +213,10 @@ export function restoreConsultantState(raw: unknown): ConsultantPortalState {
       email: typeof allowedProfile.email === "string" ? allowedProfile.email.slice(0, 160) : seed.profile.email,
       phone: typeof allowedProfile.phone === "string" ? allowedProfile.phone.slice(0, 24) : seed.profile.phone,
     },
-    leads: scopedLeads,
+    leads,
     referralLeads,
-    followUps,
     activities,
   };
-}
-
-function nextFollowUpForLead(state: ConsultantPortalState, leadId: string): string | null {
-  return state.followUps.filter((item) => item.leadId === leadId && item.consultantId === state.profile.id && item.status === "Pending")
-    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0]?.scheduledAt ?? null;
 }
 
 function pushActivity(state: ConsultantPortalState, leadId: string, activityType: ConsultantActivity["activityType"], description: string): ConsultantActivity[] {
@@ -278,11 +237,6 @@ export function getMyLeads(state: ConsultantPortalState): ConsultantLead[] {
 
 export function getMyLeadById(state: ConsultantPortalState, id: string): ConsultantLead | null {
   return state.leads.find((lead) => lead.id === id && lead.assignedConsultantId === state.profile.id) ?? null;
-}
-
-export function getMyFollowUps(state: ConsultantPortalState): ConsultantFollowUp[] {
-  const leadIds = new Set(state.leads.filter((lead) => lead.assignedConsultantId === state.profile.id).map((lead) => lead.id));
-  return state.followUps.filter((item) => item.consultantId === state.profile.id && leadIds.has(item.leadId)).slice().sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 }
 
 export function updateMyLeadState(state: ConsultantPortalState, id: string, updates: ConsultantLeadUpdate): ConsultantPortalState {
@@ -316,65 +270,6 @@ export function addMyLeadNoteState(state: ConsultantPortalState, id: string, tex
   };
 }
 
-export function createMyFollowUpState(state: ConsultantPortalState, draft: ConsultantFollowUpDraft): ConsultantPortalState {
-  const lead = getMyLeadById(state, draft.leadId);
-  if (!lead) throw new Error("Choose a lead assigned to your account.");
-  if (!draft.note.trim()) throw new Error("Add a short note about the next step.");
-  const scheduledAt = consultantDateTime(draft.date, draft.time);
-  if (scheduledAt < new Date().toISOString()) throw new Error("Choose a follow-up time in the future.");
-  const createdAt = new Date().toISOString();
-  const followUp: ConsultantFollowUp = {
-    id: `follow-up-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    leadId: lead.id,
-    consultantId: state.profile.id,
-    scheduledAt,
-    note: draft.note.trim().slice(0, 500),
-    status: "Pending",
-    completedAt: null,
-    createdAt,
-  };
-  const nextState: ConsultantPortalState = { ...state, followUps: [followUp, ...state.followUps] };
-  const next = nextFollowUpForLead(nextState, lead.id);
-  return {
-    ...nextState,
-    leads: nextState.leads.map((item) => item.id === lead.id ? { ...item, nextFollowUpAt: next, updatedAt: createdAt } : item),
-    activities: pushActivity(nextState, lead.id, "follow-up-scheduled", `Scheduled a follow-up for ${consultantLocalDate(scheduledAt)} at ${consultantLocalTime(scheduledAt)}.`),
-  };
-}
-
-export function updateMyFollowUpState(state: ConsultantPortalState, id: string, draft: ConsultantFollowUpDraft): ConsultantPortalState {
-  const followUp = getMyFollowUps(state).find((item) => item.id === id);
-  const lead = getMyLeadById(state, draft.leadId);
-  if (!followUp || !lead || followUp.status !== "Pending" || followUp.leadId !== draft.leadId) throw new Error("This pending follow-up is not available to reschedule.");
-  if (!draft.note.trim()) throw new Error("Add a short note about the next step.");
-  const scheduledAt = consultantDateTime(draft.date, draft.time);
-  if (scheduledAt < new Date().toISOString()) throw new Error("Choose a follow-up time in the future.");
-  const updatedAt = new Date().toISOString();
-  const nextState: ConsultantPortalState = {
-    ...state,
-    followUps: state.followUps.map((item) => item.id === id ? { ...item, leadId: lead.id, scheduledAt, note: draft.note.trim().slice(0, 500) } : item),
-  };
-  const next = nextFollowUpForLead(nextState, lead.id);
-  return {
-    ...nextState,
-    leads: nextState.leads.map((item) => item.id === lead.id ? { ...item, nextFollowUpAt: next, updatedAt } : item),
-    activities: pushActivity(nextState, lead.id, "follow-up-scheduled", `Rescheduled a follow-up for ${consultantLocalDate(scheduledAt)} at ${consultantLocalTime(scheduledAt)}.`),
-  };
-}
-
-export function completeMyFollowUpState(state: ConsultantPortalState, id: string): ConsultantPortalState {
-  const followUp = getMyFollowUps(state).find((item) => item.id === id);
-  if (!followUp || followUp.status !== "Pending") return state;
-  const completedAt = new Date().toISOString();
-  const nextState = { ...state, followUps: state.followUps.map((item) => item.id === id ? { ...item, status: "Completed" as const, completedAt } : item) };
-  const next = nextFollowUpForLead(nextState, followUp.leadId);
-  return {
-    ...nextState,
-    leads: nextState.leads.map((lead) => lead.id === followUp.leadId ? { ...lead, nextFollowUpAt: next, updatedAt: completedAt } : lead),
-    activities: pushActivity(nextState, followUp.leadId, "follow-up-completed", `Completed a follow-up for ${getMyLeadById(state, followUp.leadId)?.fullName ?? "the student"}.`),
-  };
-}
-
 export function updateMyProfileState(state: ConsultantPortalState, draft: ConsultantProfileDraft): ConsultantPortalState {
   const fullName = draft.fullName.trim();
   const email = draft.email.trim().toLowerCase();
@@ -385,39 +280,38 @@ export function updateMyProfileState(state: ConsultantPortalState, draft: Consul
   return { ...state, profile: { ...state.profile, fullName, email, phone } };
 }
 
-export function getMyReferralStats(state: ConsultantPortalState) {
+export function getMyReferralStats(state: ConsultantPortalState, origin?: string) {
   const referrals = state.referralLeads;
   const converted = referrals.filter((lead) => lead.currentStatus === "Converted").length;
+  const inProgress = referrals.filter((lead) => lead.currentStatus === "In progress" || lead.currentStatus === "Contacted").length;
+  const baseUrl = (origin && origin.trim()) || (typeof window !== "undefined" ? window.location.origin : SITE_URL);
   return {
     total: referrals.length,
     newLeads: referrals.filter((lead) => lead.currentStatus === "New").length,
+    inProgress,
     converted,
     conversionRate: referrals.length ? Math.round((converted / referrals.length) * 100) : 0,
-    referralUrl: `${SITE_URL}/courses?ref=${encodeURIComponent(state.profile.referralCode)}`,
+    referralUrl: `${baseUrl}/courses?ref=${encodeURIComponent(state.profile.referralCode)}`,
   };
 }
 
 export function getMyDashboard(state: ConsultantPortalState, now = new Date()) {
   const leads = getMyLeads(state);
-  const followUps = getMyFollowUps(state);
-  const today = consultantLocalDate(now);
-  const pending = followUps.filter((item) => item.status === "Pending");
+  const totalNotes = leads.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0);
   const referralStats = getMyReferralStats(state);
-  const pipeline = ["New", "Contacted", "Follow-up", "Converted", "Lost"].map((status) => ({
-    status: status as ConsultantLeadStatus,
+  const pipeline = CONSULTANT_LEAD_STATUSES.map((status) => ({
+    status,
     count: leads.filter((lead) => lead.status === status).length,
   }));
   return {
     totalAssigned: leads.length,
     newLeads: leads.filter((lead) => lead.status === "New").length,
-    followUpsDue: pending.filter((item) => consultantLocalDate(item.scheduledAt) <= today).length,
+    notesLogged: totalNotes,
     converted: leads.filter((lead) => lead.status === "Converted").length,
     referralLeads: referralStats.total,
     conversionRate: leads.length ? Math.round((leads.filter((lead) => lead.status === "Converted").length / leads.length) * 100) : 0,
     pipeline,
     recentLeads: leads.slice(0, 8),
-    todayFollowUps: pending.filter((item) => consultantLocalDate(item.scheduledAt) === today).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
-    overdueFollowUps: pending.filter((item) => consultantLocalDate(item.scheduledAt) < today).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
     referralStats,
     recentActivities: state.activities.filter((item) => leads.some((lead) => lead.id === item.leadId)).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8),
   };
@@ -436,7 +330,7 @@ export function getMyPerformance(state: ConsultantPortalState, rangeDays = 180, 
   const contactedInRange = leadsInRange.filter((lead) => Boolean(lead.lastContactedAt)).length;
   const convertedInRange = leadsInRange.filter((lead) => lead.status === "Converted").length;
   const referralsInRange = state.referralLeads.filter((lead) => inDateRange(lead.capturedAt, start));
-  const followUpsCompletedInRange = state.followUps.filter((item) => item.status === "Completed" && inDateRange(item.completedAt, start)).length;
+  const notesLoggedInRange = leadsInRange.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0);
   const months = Array.from({ length: 6 }, (_, index) => {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
     const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
@@ -453,13 +347,13 @@ export function getMyPerformance(state: ConsultantPortalState, rangeDays = 180, 
       assigned: assignedCohort.length,
       contacted: assignedCohort.filter((lead) => Boolean(lead.lastContactedAt)).length,
       converted: assignedCohort.filter((lead) => lead.status === "Converted").length,
-      followUpsCompleted: state.followUps.filter((item) => item.status === "Completed" && inMonth(item.completedAt)).length,
+      notesLogged: assignedCohort.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0),
       referralLeads: referralCohort.length,
       referralConverted: referralCohort.filter((lead) => lead.currentStatus === "Converted").length,
     };
   });
-  const statusDistribution = ["New", "Contacted", "Follow-up", "Converted", "Lost"].map((status) => ({
-    status: status as ConsultantLeadStatus,
+  const statusDistribution = CONSULTANT_LEAD_STATUSES.map((status) => ({
+    status,
     count: leadsInRange.filter((lead) => lead.status === status).length,
   }));
   return {
@@ -469,7 +363,7 @@ export function getMyPerformance(state: ConsultantPortalState, rangeDays = 180, 
     converted: convertedInRange,
     conversionRate: leadsInRange.length ? Math.round((convertedInRange / leadsInRange.length) * 100) : 0,
     referralLeads: referralsInRange.length,
-    followUpsCompleted: followUpsCompletedInRange,
+    notesLogged: notesLoggedInRange,
     months,
     statusDistribution,
     leadsInRange,

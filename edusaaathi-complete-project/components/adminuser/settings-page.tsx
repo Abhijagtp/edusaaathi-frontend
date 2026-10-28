@@ -46,14 +46,13 @@ export function SettingsPage() {
       <Panel title="Notification preferences" subtitle="Preferences are saved locally; no emails or reminders are sent">
         <div className={styles.toggleList}>
           <Toggle label="Email notifications" description="Future preference for important admin updates." checked={draft.emailNotifications} onChange={(value) => update("emailNotifications", value)} name="emailNotifications" />
-          <Toggle label="Follow-up reminders" description="Future preference for due and overdue follow-ups." checked={draft.followUpReminders} onChange={(value) => update("followUpReminders", value)} name="followUpReminders" />
           <Toggle label="Weekly summary" description="Future preference for a weekly performance summary." checked={draft.weeklySummary} onChange={(value) => update("weeklySummary", value)} name="weeklySummary" />
         </div>
       </Panel>
       <div className={styles.formActionRow}><span>{saved ? <><AdminIcon name="check-circle" size={15} />Settings saved in this browser</> : "Settings are local to this browser."}</span><AdminButton variant="primary" type="submit" icon="save">Save settings</AdminButton></div>
     </form>
     <Panel title="Demo data" subtitle="This clears browser-local changes and restores the illustrative sample dataset" className={styles.resetPanel}>
-      <div className={styles.resetRow}><div><strong>Reset admin demo data</strong><p>Reset leads, consultants, referrals, follow-ups, website content and preferences to the original sample values in this browser.</p></div><AdminButton variant="danger" icon="refresh" onClick={() => setShowReset(true)}>Reset demo data</AdminButton></div>
+      <div className={styles.resetRow}><div><strong>Reset admin demo data</strong><p>Reset leads, consultants, referrals, website content and preferences to the original sample values in this browser.</p></div><AdminButton variant="danger" icon="refresh" onClick={() => setShowReset(true)}>Reset demo data</AdminButton></div>
     </Panel>
     <div className={styles.securityNotice}><span><AdminIcon name="lock" size={18} /></span><div><strong>Production security is not implemented here.</strong><p>This admin panel is a frontend-only prototype. Enforce authentication, authorization, audit logging and all data writes in the Django backend before exposing it to real users. Keep the existing <code>/admin</code> authentication flow separate.</p></div></div>
     {!hydrated ? <div className={styles.loadingLine}>Loading admin settings…</div> : null}
