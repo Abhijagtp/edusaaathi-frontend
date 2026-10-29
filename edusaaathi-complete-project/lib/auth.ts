@@ -71,6 +71,48 @@ export async function getAdminJwtToken(): Promise<string | undefined> {
   return cookieStore.get(JWT_ACCESS_COOKIE)?.value;
 }
 
+export async function getAdminRefreshToken(): Promise<string | undefined> {
+  const cookieStore = await cookies();
+  return cookieStore.get(JWT_REFRESH_COOKIE)?.value;
+}
+
+export async function setAdminJwtTokens(newAccessToken: string, newRefreshToken?: string): Promise<void> {
+  try {
+    const cookieStore = await cookies();
+    const isProd = process.env.NODE_ENV === "production";
+    cookieStore.set(JWT_ACCESS_COOKIE, newAccessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProd,
+      path: "/",
+      maxAge: 60 * 60 * 24, // 1 day
+    });
+    if (newRefreshToken) {
+      cookieStore.set(JWT_REFRESH_COOKIE, newRefreshToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProd,
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+    }
+  } catch {
+    // In read-only Server Component contexts, ignore cookie mutation errors
+  }
+}
+
+export async function clearAdminSession(): Promise<void> {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete(ADMIN_COOKIE);
+    cookieStore.delete(JWT_ACCESS_COOKIE);
+    cookieStore.delete(JWT_REFRESH_COOKIE);
+    cookieStore.delete(ADMIN_USER_COOKIE);
+  } catch {
+    // In read-only contexts, ignore
+  }
+}
+
 export async function getAdminUser(): Promise<any | null> {
   try {
     const cookieStore = await cookies();

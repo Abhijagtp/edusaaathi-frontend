@@ -8,6 +8,7 @@ import {
 import type {
   ConsultantLead, ConsultantLeadUpdate, ConsultantPortalState, ConsultantProfile, ConsultantProfileDraft,
 } from "@/lib/consultant/types";
+import { interceptedFetch as fetch } from "@/lib/api-client";
 
 type ConsultantPortalValue = ConsultantPortalState & {
   hydrated: boolean;

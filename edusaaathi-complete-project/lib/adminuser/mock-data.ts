@@ -3,7 +3,7 @@ import type { Course } from "@/lib/types";
 import type { Activity, AdminSettings, AdminState, Consultant, Lead, LeadSource, LeadStatus, Referral, WebsiteContent } from "./types";
 
 export const ADMIN_STORAGE_KEY = "edusathi-adminuser-mock-v1";
-export const ADMINISTRATOR_NAME = "Ananya Sharma";
+export const ADMINISTRATOR_NAME = "Administrator";
 
 export const COURSE_OPTIONS = ["BCA", "BBA", "MBA", "B.Tech", "MCA", "B.Com", "B.Sc. IT", "BA Psychology"];
 export const LEAD_STATUSES: LeadStatus[] = ["New", "Contacted", "In progress", "Converted", "Lost"];
@@ -90,7 +90,7 @@ function createLead(seed: (typeof leadSeed)[number]): Lead {
     status: seed.status,
     lastContactedAt: seed.contacted === null ? null : shiftedDate(-seed.contacted, 15, 20),
     createdAt: shiftedDate(-seed.age, 10 + (seed.age % 7), 15),
-    notes: seed.note ? [{ id: `${seed.id}-note-1`, text: seed.note, createdAt: shiftedDate(-Math.max(seed.contacted ?? seed.age, 0), 16, 0), author: "Ananya Sharma" }] : [],
+    notes: seed.note ? [{ id: `${seed.id}-note-1`, text: seed.note, createdAt: shiftedDate(-Math.max(seed.contacted ?? seed.age, 0), 16, 0), author: "Administrator" }] : [],
   };
 }
 
@@ -102,7 +102,7 @@ function initialActivities(leads: Lead[]): Activity[] {
     { id: "activity-4", leadId: "lead-1004", consultantId: "consultant-vivek", type: "note-added", title: "Counselor note logged", description: "Counselor note logged for Kabir Rao.", createdAt: shiftedDate(-1, 11, 10), actor: "Vivek Nair" },
     { id: "activity-5", leadId: null, consultantId: "consultant-priya", type: "consultant", title: "Referral link shared", description: "Priya Iyer shared her consultant referral link.", createdAt: shiftedDate(-2, 16, 20), actor: "Priya Iyer" },
     { id: "activity-6", leadId: "lead-1007", consultantId: "consultant-vivek", type: "note-added", title: "Lead marked as not proceeding", description: "Ananya Reddy is no longer exploring this intake.", createdAt: shiftedDate(-4, 15, 0), actor: "Vivek Nair" },
-    { id: "activity-7", leadId: "lead-1006", consultantId: "consultant-priya", type: "assigned", title: "Lead assigned", description: "Vivaan Joshi was assigned to Priya Iyer.", createdAt: shiftedDate(-3, 13, 30), actor: "Ananya Sharma" },
+    { id: "activity-7", leadId: "lead-1006", consultantId: "consultant-priya", type: "assigned", title: "Lead assigned", description: "Vivaan Joshi was assigned to Priya Iyer.", createdAt: shiftedDate(-3, 13, 30), actor: "Administrator" },
   ];
 }
 

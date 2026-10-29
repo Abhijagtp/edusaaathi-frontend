@@ -51,12 +51,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { leads, consultants, hydrated, notice } = useAdminData();
   const { session, sessionHydrated, logout } = useAdminSession();
   const currentConsultant = session?.role === "consultant" ? consultants.find((item) => item.id === session.consultantId) : undefined;
-  const displayName = currentConsultant?.name ?? ADMINISTRATOR_NAME;
-  const displayRole = session?.role === "consultant" ? "Consultant demo" : "Administrator demo";
+  const displayName = session?.name || currentConsultant?.name || ADMINISTRATOR_NAME;
+  const displayRole = session?.role === "consultant" ? "Consultant" : "Administrator";
   const navGroups = session?.role === "consultant" ? consultantGroups : groups;
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
 
@@ -70,7 +69,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setNotificationsOpen(false);
         setProfileOpen(false);
         setMobileOpen(false);
       }
@@ -131,28 +129,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <header className={styles.topbar}>
           <div className={styles.topbarLeft}><button type="button" className={styles.mobileMenu} aria-label="Open admin navigation" aria-expanded={mobileOpen} aria-controls="admin-navigation" onClick={() => setMobileOpen(true)}><AdminIcon name="menu" /></button><nav className={styles.breadcrumbs} aria-label="Breadcrumb">{crumbs.map((crumb, index) => <span key={crumb.href}>{index > 0 ? <AdminIcon name="chevron-right" size={13} /> : null}{index === crumbs.length - 1 ? <strong>{crumb.label}</strong> : <Link href={crumb.href}>{crumb.label}</Link>}</span>)}</nav></div>
           <div className={styles.topbarActions}>
-
-            {session.role === "admin" ? (
-              <div className={styles.headerPopoverWrap}>
-                <button type="button" className={`${styles.headerIconButton} ${notificationsOpen ? styles.headerIconButtonActive : ""}`} aria-label={`Notifications${newLeads.length ? `, ${newLeads.length} new` : ""}`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }}>
-                  <AdminIcon name="bell" size={18} />{newLeads.length ? <i /> : null}
-                </button>
-                {notificationsOpen ? (
-                  <div className={`${styles.popover} ${styles.notificationPopover}`}>
-                    <div className={styles.popoverHeader}><div><strong>New Lead Alerts</strong><small>{newLeads.length} awaiting initial contact</small></div><Link href="/adminuser/leads" onClick={() => setNotificationsOpen(false)}>View all</Link></div>
-                    {newLeads.length ? newLeads.slice(0, 5).map((lead) => (
-                      <Link href={`/adminuser/leads/${lead.id}`} className={styles.notificationItem} key={lead.id} onClick={() => setNotificationsOpen(false)}>
-                        <span className={styles.notificationDot} />
-                        <span><strong>{lead.studentName}</strong><small>{lead.course} · {lead.source}</small></span>
-                      </Link>
-                    )) : <div className={styles.popoverEmpty}>No pending new leads.</div>}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
             <div className={styles.headerPopoverWrap}>
-              <button type="button" className={styles.profileButton} aria-expanded={profileOpen} onClick={() => { setProfileOpen((value) => !value); setNotificationsOpen(false); }}>
+              <button type="button" className={styles.profileButton} aria-expanded={profileOpen} onClick={() => setProfileOpen((value) => !value)}>
                 <span className={styles.profileAvatar}>{displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>
                 <span className={styles.profileText}><strong>{displayName}</strong><small>{displayRole}</small></span>
                 <AdminIcon name="chevron-down" size={15} />

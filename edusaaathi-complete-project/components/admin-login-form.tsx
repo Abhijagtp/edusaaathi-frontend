@@ -24,7 +24,14 @@ export function AdminLoginForm() {
       });
       const data = (await response.json()) as {
         error?: string;
-        user?: { id?: number; full_name?: string; email?: string; role?: string };
+        user?: {
+          id?: number;
+          full_name?: string;
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+          role?: string;
+        };
       };
 
       if (!response.ok) {
@@ -33,6 +40,12 @@ export function AdminLoginForm() {
 
       const role = String(data.user?.role || "").toUpperCase();
       const isConsultant = role === "CONSULTANT" || role === "COUNSELOR";
+      const userName =
+        data.user?.full_name ||
+        (data.user?.first_name ? `${data.user.first_name} ${data.user?.last_name || ""}`.trim() : null) ||
+        (data.user?.email ? data.user.email.split("@")[0] : null) ||
+        (isConsultant ? "Consultant" : "Administrator");
+      const userEmail = data.user?.email || email;
 
       try {
         if (isConsultant) {
@@ -41,6 +54,8 @@ export function AdminLoginForm() {
             JSON.stringify({
               role: "consultant",
               consultantId: String((data.user as any)?.consultant_id || data.user?.id || "1"),
+              name: userName,
+              email: userEmail,
             })
           );
         } else {
@@ -49,6 +64,8 @@ export function AdminLoginForm() {
             JSON.stringify({
               role: "admin",
               consultantId: null,
+              name: userName,
+              email: userEmail,
             })
           );
         }

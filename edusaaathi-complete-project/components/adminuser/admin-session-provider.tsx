@@ -3,7 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export const ADMIN_DEMO_SESSION_KEY = "coursesathi-adminuser-demo-session-v1";
-export type DemoSession = { role: "admin"; consultantId: null } | { role: "consultant"; consultantId: string };
+export type DemoSession =
+  | { role: "admin"; consultantId: null; name?: string; email?: string }
+  | { role: "consultant"; consultantId: string; name?: string; email?: string };
 
 type SessionValue = {
   session: DemoSession | null;
@@ -40,9 +42,19 @@ export function AdminSessionProvider({
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<DemoSession>;
         if (parsed.role === "admin") {
-          resolvedSession = { role: "admin", consultantId: null };
+          resolvedSession = {
+            role: "admin",
+            consultantId: null,
+            name: parsed.name || "Administrator",
+            email: parsed.email || "admin@edusaathi.com",
+          };
         } else if (parsed.role === "consultant" && parsed.consultantId) {
-          resolvedSession = { role: "consultant", consultantId: String(parsed.consultantId) };
+          resolvedSession = {
+            role: "consultant",
+            consultantId: String(parsed.consultantId),
+            name: parsed.name,
+            email: parsed.email,
+          };
         }
       }
 
@@ -55,16 +67,33 @@ export function AdminSessionProvider({
         if (userCookieRaw) {
           try {
             const userObj = JSON.parse(userCookieRaw);
-            if (userObj.role === "CONSULTANT") {
-              resolvedSession = { role: "consultant", consultantId: String(userObj.id || "1") };
+            const userName =
+              userObj.full_name ||
+              (userObj.first_name ? `${userObj.first_name} ${userObj.last_name || ""}`.trim() : null) ||
+              (userObj.email ? userObj.email.split("@")[0] : null) ||
+              "Administrator";
+            const userEmail = userObj.email || "admin@edusaathi.com";
+
+            if (userObj.role === "CONSULTANT" || userObj.role === "COUNSELOR") {
+              resolvedSession = {
+                role: "consultant",
+                consultantId: String(userObj.id || "1"),
+                name: userName,
+                email: userEmail,
+              };
             } else {
-              resolvedSession = { role: "admin", consultantId: null };
+              resolvedSession = {
+                role: "admin",
+                consultantId: null,
+                name: userName,
+                email: userEmail,
+              };
             }
           } catch {
-            resolvedSession = { role: "admin", consultantId: null };
+            resolvedSession = { role: "admin", consultantId: null, name: "Administrator" };
           }
         } else if (adminCookie || jwtCookie) {
-          resolvedSession = { role: "admin", consultantId: null };
+          resolvedSession = { role: "admin", consultantId: null, name: "Administrator" };
         }
       }
     } catch {
@@ -81,10 +110,10 @@ export function AdminSessionProvider({
     }
 
     setSessionHydrated(true);
-  }, []);
+  }, [initialSession]);
 
   const loginAsAdmin = useCallback(() => {
-    const next: DemoSession = { role: "admin", consultantId: null };
+    const next: DemoSession = { role: "admin", consultantId: null, name: "Administrator" };
     setSession(next);
     try {
       window.sessionStorage.setItem(ADMIN_DEMO_SESSION_KEY, JSON.stringify(next));

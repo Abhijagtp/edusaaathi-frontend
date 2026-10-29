@@ -4,7 +4,9 @@ import Link from "next/link";
 import type { Activity, Lead } from "@/lib/adminuser/types";
 import { localDateString } from "@/lib/adminuser/mock-data";
 import { formatDate, percent } from "@/lib/adminuser/format";
+import { ADMINISTRATOR_NAME } from "@/lib/adminuser/mock-data";
 import { useAdminData } from "./admin-data-provider";
+import { useAdminSession } from "./admin-session-provider";
 import { Avatar, Badge, EmptyState, PageHeading, Panel, StatCard } from "./admin-ui";
 import { AdminIcon } from "./admin-icon";
 import { HorizontalBars, LeadTrendChart, SourceDonut } from "./admin-charts";
@@ -28,6 +30,9 @@ function ActivityIcon({ type }: { type: Activity["type"] }) {
 
 export function DashboardPage() {
   const { leads, consultants, activities, hydrated } = useAdminData();
+  const { session } = useAdminSession();
+  const adminName = session?.name || ADMINISTRATOR_NAME;
+  const firstName = adminName.split(/\s+/)[0] || adminName;
   const newLeads = leads.filter((lead) => lead.status === "New").length;
   const contacted = leads.filter((lead) => lead.status === "Contacted").length;
   const inProgress = leads.filter((lead) => lead.status === "In progress").length;
@@ -63,7 +68,7 @@ export function DashboardPage() {
 
   return (
     <div className={styles.pageContent}>
-      <PageHeading eyebrow="OVERVIEW" title="Welcome back, Ananya" description="Here’s your team’s lead activity and counseling notes at a glance." actions={<Link href="/adminuser/leads" className={styles.textLink}>View all leads <AdminIcon name="arrow-right" size={15} /></Link>} />
+      <PageHeading eyebrow="OVERVIEW" title={`Welcome back, ${firstName}`} description="Here’s your team’s lead activity and counseling notes at a glance." actions={<Link href="/adminuser/leads" className={styles.textLink}>View all leads <AdminIcon name="arrow-right" size={15} /></Link>} />
       <div className={styles.statsGrid}>
         <StatCard label="Total leads" value={leads.length} helper="All sources" icon="users" tone="indigo" />
         <StatCard label="New leads" value={newLeads} helper="Awaiting first contact" icon="sparkle" tone="violet" />

@@ -6,6 +6,7 @@ import type { Course } from "@/lib/types";
 import { slugify } from "@/lib/format";
 import { ADMIN_STORAGE_KEY, createInitialAdminState } from "@/lib/adminuser/mock-data";
 import type { Activity, AdminSettings, AdminState, Consultant, ConsultantDraft, CourseDraft, Lead, LeadDraft, WebsiteContent } from "@/lib/adminuser/types";
+import { interceptedFetch as fetch } from "@/lib/api-client";
 
 type AdminDataValue = AdminState & {
   sourceCourses: Course[];

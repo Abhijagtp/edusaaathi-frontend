@@ -283,8 +283,6 @@ export function AdminDashboard() {
               <label className="admin-form-grid__full">Eligibility *<textarea rows={2} value={draft.eligibility} onChange={(event) => setDraft({ ...draft, eligibility: event.target.value })} required maxLength={1000} /></label>
               <label className="admin-form-grid__full">Highlights <span className="admin-label-note">One point per line</span><textarea rows={4} value={draft.highlightsText} onChange={(event) => setDraft({ ...draft, highlightsText: event.target.value })} placeholder="Enter one course highlight per line" /></label>
               <label className="admin-form-grid__full">Admission information *<textarea rows={3} value={draft.admissionInfo} onChange={(event) => setDraft({ ...draft, admissionInfo: event.target.value })} required maxLength={3000} /></label>
-              <label className="admin-form-grid__full">Image URL (optional)<input value={draft.image} onChange={(event) => setDraft({ ...draft, image: event.target.value })} maxLength={500} placeholder="https://… or /images/course.jpg" /></label>
-              <label className="admin-form-grid__full">Image alt text<input value={draft.imageAlt} onChange={(event) => setDraft({ ...draft, imageAlt: event.target.value })} maxLength={160} placeholder="Briefly describe the image" /></label>
             </div>
             <label className="admin-publish-toggle"><input type="checkbox" checked={draft.published} onChange={(event) => setDraft({ ...draft, published: event.target.checked })} /><span><strong>Publish this course guide</strong><small>Published content is visible on the public website.</small></span></label>
             {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
