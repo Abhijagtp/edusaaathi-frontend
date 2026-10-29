@@ -18,6 +18,7 @@ type ConsultantPortalValue = ConsultantPortalState & {
   addLeadNote: (id: string, note: string) => void;
   updateMyProfile: (draft: ConsultantProfileDraft) => void;
   resetDemoData: () => void;
+  refreshConsultantData: () => Promise<void>;
 };
 
 const ConsultantPortalContext = createContext<ConsultantPortalValue | null>(null);
@@ -26,6 +27,63 @@ export function ConsultantPortalProvider({ children }: { children: React.ReactNo
   const [state, setState] = useState<ConsultantPortalState>(() => createInitialConsultantState());
   const [hydrated, setHydrated] = useState(false);
   const [notice, setNotice] = useState("");
+
+  const syncConsultantBackend = useCallback(async () => {
+    try {
+      const [dashRes, leadsRes] = await Promise.allSettled([
+        fetch("/api/consultant/dashboard").then((r) => r.ok ? r.json() : null),
+        fetch("/api/consultant/leads").then((r) => r.ok ? r.json() : null),
+      ]);
+
+      const dashData = dashRes.status === "fulfilled" ? dashRes.value : null;
+      const leadsData = leadsRes.status === "fulfilled" ? leadsRes.value?.leads : null;
+
+      setState((curr) => {
+        let nextProfile = curr.profile;
+        let code = (curr.profile.referralCode || "").toUpperCase();
+        let cid = String(curr.profile.id || "");
+        let cuid = String(curr.profile.userId || cid);
+
+        if (dashData && dashData.consultant) {
+          const c = dashData.consultant;
+          code = (c.referral_code || curr.profile.referralCode || "").toUpperCase();
+          cid = String(c.id);
+          cuid = String(c.user_id || c.id);
+          nextProfile = {
+            id: cid,
+            userId: cuid,
+            fullName: c.full_name || curr.profile.fullName,
+            email: c.email || curr.profile.email,
+            phone: c.phone_number || curr.profile.phone,
+            referralCode: code || curr.profile.referralCode,
+            isActive: true,
+            createdAt: curr.profile.createdAt,
+          };
+        }
+
+        const liveLeads: ConsultantLead[] = Array.isArray(leadsData) ? leadsData : curr.leads;
+        const liveReferralLeads = liveLeads
+          .filter((l) => (code && l.referralCode && l.referralCode.toUpperCase() === code) || l.referredByConsultantId === cid || l.referredByConsultantId === cuid || l.source === "Consultant referral")
+          .map((l) => ({
+            id: `ref-${l.id}`,
+            fullName: l.fullName,
+            capturedAt: l.createdAt,
+            interestedCourse: l.interestedCourse,
+            currentStatus: l.status,
+            authorizedLeadId: l.id,
+          }));
+
+        return {
+          ...curr,
+          profile: nextProfile,
+          leads: liveLeads,
+          referralLeads: liveReferralLeads,
+        };
+      });
+    } catch {
+      // Fallback to local state
+    }
+  }, []);
 
   useEffect(() => {
     let restored: ConsultantPortalState;
@@ -42,58 +100,8 @@ export function ConsultantPortalProvider({ children }: { children: React.ReactNo
   // Synchronize live consultant profile, metrics, and assigned leads from backend
   useEffect(() => {
     if (!hydrated) return;
-
-    async function syncConsultantBackend() {
-      try {
-        const [dashRes, leadsRes] = await Promise.allSettled([
-          fetch("/api/consultant/dashboard").then((r) => r.ok ? r.json() : null),
-          fetch("/api/consultant/leads").then((r) => r.ok ? r.json() : null),
-        ]);
-
-        const dashData = dashRes.status === "fulfilled" ? dashRes.value : null;
-        const leadsData = leadsRes.status === "fulfilled" ? leadsRes.value?.leads : null;
-
-        if (dashData && dashData.consultant) {
-          const c = dashData.consultant;
-          setState((curr) => {
-            const code = (c.referral_code || curr.profile.referralCode || "").toUpperCase();
-            const nextProfile: ConsultantProfile = {
-              id: String(c.id),
-              fullName: c.full_name || curr.profile.fullName,
-              email: c.email || curr.profile.email,
-              phone: c.phone_number || curr.profile.phone,
-              referralCode: code || curr.profile.referralCode,
-              isActive: true,
-              createdAt: curr.profile.createdAt,
-            };
-
-            const liveLeads: ConsultantLead[] = Array.isArray(leadsData) ? leadsData : curr.leads;
-            const liveReferralLeads = liveLeads
-              .filter((l) => (code && l.referralCode && l.referralCode.toUpperCase() === code) || l.referredByConsultantId === String(c.id) || l.source === "Consultant referral")
-              .map((l) => ({
-                id: `ref-${l.id}`,
-                fullName: l.fullName,
-                capturedAt: l.createdAt,
-                interestedCourse: l.interestedCourse,
-                currentStatus: l.status,
-                authorizedLeadId: l.id,
-              }));
-
-            return {
-              ...curr,
-              profile: nextProfile,
-              leads: liveLeads,
-              referralLeads: liveReferralLeads,
-            };
-          });
-        }
-      } catch {
-        // Fallback to local state
-      }
-    }
-
-    syncConsultantBackend();
-  }, [hydrated]);
+    void syncConsultantBackend();
+  }, [hydrated, syncConsultantBackend]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -166,8 +174,8 @@ export function ConsultantPortalProvider({ children }: { children: React.ReactNo
   }, [announce]);
 
   const value = useMemo<ConsultantPortalValue>(() => ({
-    ...state, hydrated, notice, announce, updateMyLead, addLeadNote, updateMyProfile, resetDemoData,
-  }), [state, hydrated, notice, announce, updateMyLead, addLeadNote, updateMyProfile, resetDemoData]);
+    ...state, hydrated, notice, announce, updateMyLead, addLeadNote, updateMyProfile, resetDemoData, refreshConsultantData: syncConsultantBackend,
+  }), [state, hydrated, notice, announce, updateMyLead, addLeadNote, updateMyProfile, resetDemoData, syncConsultantBackend]);
 
   return <ConsultantPortalContext.Provider value={value}>{children}</ConsultantPortalContext.Provider>;
 }

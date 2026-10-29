@@ -15,7 +15,7 @@ const PAGE_SIZE = 8;
 
 export function ConsultantLeadsPage() {
   const portal = useConsultantPortal();
-  const allLeads = useMemo(() => getMyLeads(portal), [portal.leads, portal.profile.id]);
+  const allLeads = useMemo(() => getMyLeads(portal), [portal.leads, portal.profile]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All statuses");
   const [source, setSource] = useState("All sources");

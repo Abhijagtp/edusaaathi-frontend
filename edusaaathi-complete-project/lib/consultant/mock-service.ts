@@ -231,12 +231,33 @@ function pushActivity(state: ConsultantPortalState, leadId: string, activityType
   return [item, ...state.activities].slice(0, 120);
 }
 
+export function matchesMyProfile(lead: ConsultantLead, profile: ConsultantPortalState["profile"]): boolean {
+  const profileId = String(profile.id || "");
+  const profileUserId = String(profile.userId || profileId);
+  const profileCode = (profile.referralCode || "").trim().toUpperCase();
+
+  if (lead.assignedConsultantId && (lead.assignedConsultantId === profileId || lead.assignedConsultantId === profileUserId)) {
+    return true;
+  }
+  if (profileCode && lead.referralCode && lead.referralCode.trim().toUpperCase() === profileCode) {
+    return true;
+  }
+  if (lead.referredByConsultantId && (lead.referredByConsultantId === profileId || lead.referredByConsultantId === profileUserId)) {
+    return true;
+  }
+  // When loaded directly from Django /api/consultant/leads/, the backend has already authorized this lead
+  if (lead.assignedConsultantId || lead.referralCode) {
+    return true;
+  }
+  return false;
+}
+
 export function getMyLeads(state: ConsultantPortalState): ConsultantLead[] {
-  return state.leads.filter((lead) => lead.assignedConsultantId === state.profile.id).slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return state.leads.filter((lead) => matchesMyProfile(lead, state.profile)).slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export function getMyLeadById(state: ConsultantPortalState, id: string): ConsultantLead | null {
-  return state.leads.find((lead) => lead.id === id && lead.assignedConsultantId === state.profile.id) ?? null;
+  return state.leads.find((lead) => lead.id === id && matchesMyProfile(lead, state.profile)) ?? state.leads.find((lead) => lead.id === id) ?? null;
 }
 
 export function updateMyLeadState(state: ConsultantPortalState, id: string, updates: ConsultantLeadUpdate): ConsultantPortalState {

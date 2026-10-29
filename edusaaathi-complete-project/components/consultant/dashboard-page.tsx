@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { formatDate } from "@/lib/adminuser/format";
-import { getConsultantWhatsAppHref, getMyDashboard } from "@/lib/consultant/mock-service";
+import { getConsultantWhatsAppHref, getMyDashboard, getMyLeads } from "@/lib/consultant/mock-service";
 import { useConsultantPortal } from "./consultant-provider";
 import { EmptyPanel, IconAction, MetricCard, PageHeader, PortalCard, PortalAvatar, StatusBadge } from "./consultant-ui";
 import { AdminIcon } from "@/components/adminuser/admin-icon";
@@ -42,14 +42,15 @@ export function ConsultantDashboardPage() {
   const portal = useConsultantPortal();
   const dashboard = useMemo(() => getMyDashboard(portal), [portal.profile, portal.leads, portal.referralLeads, portal.activities]);
 
+  const myLeads = useMemo(() => getMyLeads(portal), [portal.leads, portal.profile]);
+
   // Extract recent student notes from assigned leads
   const recentNotes = useMemo(() => {
-    return portal.leads
-      .filter((lead) => lead.assignedConsultantId === portal.profile.id)
+    return myLeads
       .flatMap((lead) => (lead.notes || []).map((n) => ({ ...n, leadId: lead.id, studentName: lead.fullName, course: lead.interestedCourse })))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 5);
-  }, [portal.leads, portal.profile.id]);
+  }, [myLeads]);
 
   async function copyReferral() {
     const ok = await copyText(dashboard.referralStats.referralUrl);

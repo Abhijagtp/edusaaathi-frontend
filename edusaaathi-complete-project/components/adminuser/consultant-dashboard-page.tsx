@@ -12,6 +12,8 @@ import { HorizontalBars } from "./admin-charts";
 import { AdminIcon } from "./admin-icon";
 import styles from "./admin.module.css";
 
+import { matchesConsultant } from "./consultants-page";
+
 export function ConsultantDashboardPage() {
   const { session, sessionHydrated } = useAdminSession();
   const { leads, consultants, settings, hydrated, addLeadNote } = useAdminData();
@@ -21,9 +23,12 @@ export function ConsultantDashboardPage() {
   const [noteInput, setNoteInput] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  const consultant = session?.role === "consultant" ? consultants.find((item) => item.id === session.consultantId) : undefined;
-  const assignedLeads = useMemo(() => consultant ? leads.filter((lead) => lead.assignedConsultantId === consultant.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [], [leads, consultant]);
-  const referredLeads = useMemo(() => consultant ? leads.filter((lead) => lead.referredByConsultantId === consultant.id) : [], [leads, consultant]);
+  const consultant = session?.role === "consultant"
+    ? consultants.find((item) => item.id === session.consultantId || (item as any).userId === session.consultantId || (session.email && item.email?.toLowerCase() === session.email.toLowerCase()))
+    : (consultants.length ? consultants[0] : undefined);
+
+  const assignedLeads = useMemo(() => consultant ? leads.filter((lead) => matchesConsultant(lead, consultant)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [], [leads, consultant]);
+  const referredLeads = useMemo(() => consultant ? leads.filter((lead) => matchesConsultant(lead, consultant) && Boolean(lead.referralCode || lead.referredByConsultantId)) : [], [leads, consultant]);
   const totalNotes = assignedLeads.reduce((sum, lead) => sum + (lead.notes?.length || 0), 0);
   const converted = assignedLeads.filter((lead) => lead.status === "Converted").length;
   const referralConversions = referredLeads.filter((lead) => lead.status === "Converted").length;

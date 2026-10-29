@@ -6,6 +6,7 @@ export type ConsultantLeadSource = (typeof CONSULTANT_LEAD_SOURCES)[number];
 
 export type ConsultantProfile = {
   id: string;
+  userId?: string;
   fullName: string;
   email: string;
   phone: string;
