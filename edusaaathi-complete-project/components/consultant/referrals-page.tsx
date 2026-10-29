@@ -71,7 +71,7 @@ export function ConsultantReferralsPage() {
       apply: {
         label: "Direct Application",
         desc: "Takes prospective students straight to the admission enquiry form",
-        url: `${origin}/?ref=${encoded}#enquiry-form`,
+        url: `${origin}/apply?ref=${encoded}`,
       },
     };
   }, [origin, referralCode]);

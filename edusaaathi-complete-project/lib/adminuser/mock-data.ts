@@ -149,7 +149,7 @@ export function createInitialAdminState(courses: Course[] = []): AdminState {
 
 export function getConsultantName(consultants: Consultant[], id: string | null | undefined): string {
   if (!id) return "Unassigned";
-  return consultants.find((consultant) => consultant.id === id)?.name ?? "Former consultant";
+  return consultants.find((consultant) => consultant.id === id || (consultant as any).userId === id || (consultant.referralCode && consultant.referralCode.toLowerCase() === id.toLowerCase()))?.name ?? "Former consultant";
 }
 
 export function getReferralUrl(baseUrl: string, code: string): string {

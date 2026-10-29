@@ -29,6 +29,7 @@ export type Lead = {
   courseSlug: string;
   courseName: string;
   city: string;
+  referralCode?: string;
   status: LeadStatus;
   createdAt: string;
 };

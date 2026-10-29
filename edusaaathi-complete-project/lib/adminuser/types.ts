@@ -22,6 +22,7 @@ export type Lead = {
   sourcePage: string;
   referredByConsultantId: string | null;
   assignedConsultantId: string | null;
+  referralCode?: string | null;
   status: LeadStatus;
   lastContactedAt: string | null;
   createdAt: string;
@@ -30,12 +31,14 @@ export type Lead = {
 
 export type Consultant = {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   phone: string;
   referralCode: string;
   status: AccountStatus;
   referralClicks: number;
+  totalLeads?: number;
   createdAt: string;
 };
 

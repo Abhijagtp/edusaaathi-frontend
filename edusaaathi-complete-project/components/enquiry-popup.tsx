@@ -14,6 +14,7 @@ export function EnquiryPopup() {
   const [open, setOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseSlug, setCourseSlug] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [state, setState] = useState<FormState>("idle");
   const [message, setMessage] = useState("");
 
@@ -32,6 +33,10 @@ export function EnquiryPopup() {
       const urlRef = searchParams.get("ref");
       if (urlRef) {
         window.localStorage.setItem("coursesathi-ref", urlRef);
+        setReferralCode(urlRef.toUpperCase());
+      } else {
+        const stored = window.localStorage.getItem("coursesathi-ref");
+        if (stored) setReferralCode(stored.toUpperCase());
       }
     } catch {
       // storage unavailable
@@ -87,12 +92,14 @@ export function EnquiryPopup() {
     setState("saving");
     setMessage("");
     const form = new FormData(event.currentTarget);
-    let ref = "";
-    try {
-      const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-      ref = searchParams?.get("ref") || window.localStorage.getItem("coursesathi-ref") || "";
-    } catch {
-      // storage unavailable
+    let ref = referralCode.trim().toUpperCase();
+    if (!ref) {
+      try {
+        const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        ref = (searchParams?.get("ref") || window.localStorage.getItem("coursesathi-ref") || "").trim().toUpperCase();
+      } catch {
+        // storage unavailable
+      }
     }
     const payload = {
       fullName: String(form.get("fullName") || ""),
@@ -100,6 +107,7 @@ export function EnquiryPopup() {
       courseSlug,
       city: String(form.get("city") || ""),
       ref,
+      referral_code: ref,
     };
     try {
       const response = await fetch("/api/enquiries", {
@@ -111,7 +119,10 @@ export function EnquiryPopup() {
       if (!response.ok) throw new Error(data.error || "We couldn't save your enquiry. Please try again.");
       setState("success");
       setMessage(data.message || "Thank you. Your enquiry has been saved.");
-      try { window.localStorage.setItem("coursesathi-popup-dismissed", String(Date.now())); } catch { /* storage can be unavailable */ }
+      try {
+        window.localStorage.setItem("coursesathi-popup-dismissed", String(Date.now()));
+        if (ref) window.localStorage.setItem("coursesathi-ref", ref);
+      } catch { /* storage can be unavailable */ }
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "We couldn't save your enquiry. Please try again.");

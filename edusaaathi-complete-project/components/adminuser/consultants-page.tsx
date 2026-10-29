@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import type { Consultant, ConsultantDraft } from "@/lib/adminuser/types";
+import type { Consultant, ConsultantDraft, Lead } from "@/lib/adminuser/types";
 import { getReferralUrl } from "@/lib/adminuser/mock-data";
 import { formatDate, percent } from "@/lib/adminuser/format";
 import { useAdminData } from "./admin-data-provider";
@@ -52,12 +52,26 @@ function ConsultantDialog({ consultant, consultants, onClose, onSave }: { consul
   </Modal>;
 }
 
+export function matchesConsultant(lead: Lead, consultant: Consultant): boolean {
+  if (lead.referralCode && consultant.referralCode && lead.referralCode.trim().toUpperCase() === consultant.referralCode.trim().toUpperCase()) {
+    return true;
+  }
+  const cUserId = (consultant as any).userId;
+  if (cUserId && (lead.assignedConsultantId === cUserId || lead.referredByConsultantId === cUserId)) {
+    return true;
+  }
+  if (consultant.id && (lead.assignedConsultantId === consultant.id || lead.referredByConsultantId === consultant.id)) {
+    return true;
+  }
+  return false;
+}
+
 function ConsultantDetailDialog({ consultant, leads, referrals, baseUrl, onClose }: { consultant: Consultant; leads: ReturnType<typeof useAdminData>["leads"]; referrals: ReturnType<typeof useAdminData>["referrals"]; baseUrl: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
-  const assigned = leads.filter((lead) => lead.assignedConsultantId === consultant.id);
-  const referred = leads.filter((lead) => lead.referredByConsultantId === consultant.id);
+  const assigned = leads.filter((lead) => matchesConsultant(lead, consultant));
+  const referred = leads.filter((lead) => matchesConsultant(lead, consultant) && Boolean(lead.referralCode || lead.referredByConsultantId));
   const converted = assigned.filter((lead) => lead.status === "Converted").length;
-  const referralRecords = referrals.filter((referral) => referral.consultantId === consultant.id).length;
+  const referralRecords = referrals.filter((referral) => referral.consultantId === consultant.id || referral.consultantId === (consultant as any).userId).length || referred.length;
   const referralLink = getReferralUrl(baseUrl, consultant.referralCode);
   async function copyLink() {
     try { await navigator.clipboard.writeText(referralLink); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
@@ -69,7 +83,7 @@ function ConsultantDetailDialog({ consultant, leads, referrals, baseUrl, onClose
     <div className={styles.referralCodeBox}><span>Unique referral link</span><code>{referralLink}</code><AdminButton icon={copied ? "check" : "copy"} onClick={() => void copyLink()}>{copied ? "Copied" : "Copy link"}</AdminButton></div>
     <p className={styles.helperInfo}><AdminIcon name="circle-info" size={14} />{referralRecords} attribution record{referralRecords === 1 ? "" : "s"}. Referral attribution is separate from current lead ownership; deactivation does not delete history.</p>
     <div className={styles.consultantRecentLeads}><strong>Recent referral leads</strong>{referred.slice(0, 4).map((lead) => <Link href={`/adminuser/leads/${lead.id}`} key={lead.id} onClick={onClose}><Avatar name={lead.studentName} size="xs" /><span>{lead.studentName}<small>{lead.course} · {lead.status}</small></span><AdminIcon name="arrow-up-right" size={14} /></Link>)}{!referred.length ? <small>No referral leads yet.</small> : null}</div>
-    <div className={styles.referralCodeBox}><span>Referral link clicks (mock count)</span><strong>{consultant.referralClicks.toLocaleString("en-IN")}</strong></div>
+    <div className={styles.referralCodeBox}><span>Referral link leads</span><strong>{assigned.length || consultant.totalLeads || 0}</strong></div>
   </Modal>;
 }
 
@@ -145,11 +159,11 @@ export function ConsultantsPage() {
 
   return <div className={styles.pageContent}>
     <PageHeading eyebrow="TEAM MANAGEMENT" title="Consultants" description="Manage your consultant team, their referral codes and lead ownership." actions={<AdminButton variant="primary" icon="plus" onClick={() => { setEditing(undefined); setShowEditor(true); }}>Add consultant</AdminButton>} />
-    <div className={styles.threeStatsGrid}><div className={styles.summaryStat}><span>Consultants</span><strong>{consultants.length}</strong><small>{activeCount} active accounts</small></div><div className={styles.summaryStat}><span>Assigned leads</span><strong>{assignedCount}</strong><small>Across the current mock data</small></div><div className={styles.summaryStat}><span>Team conversions</span><strong>{converted}</strong><small>{percent(converted, leads.length)} of all leads</small></div></div>
+    <div className={styles.threeStatsGrid}><div className={styles.summaryStat}><span>Consultants</span><strong>{consultants.length}</strong><small>{activeCount} active accounts</small></div><div className={styles.summaryStat}><span>Assigned leads</span><strong>{assignedCount}</strong><small>Live database records</small></div><div className={styles.summaryStat}><span>Team conversions</span><strong>{converted}</strong><small>{percent(converted, leads.length)} of all leads</small></div></div>
     <Panel title="Consultant directory" subtitle={`${filtered.length} consultants`} action={<div className={styles.panelFilters}><SearchField value={search} onChange={setSearch} placeholder="Search name or code" label="Search consultants" /><label className={styles.filterControl}><span className={styles.srOnly}>Filter account status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All accounts</option><option>Active</option><option>Inactive</option></select></label></div>}>
       {!hydrated ? <div className={styles.tableLoading}>Loading consultant data…</div> : filtered.length ? <div className={styles.tableViewport}><table className={styles.dataTable}><thead><tr><th>Consultant</th><th>Contact</th><th>Referral code</th><th>Status</th><th>Assigned leads</th><th>Converted</th><th>Conversion rate</th><th>Joined</th><th>Actions</th></tr></thead><tbody>{filtered.map((consultant) => {
-        const assigned = leads.filter((lead) => lead.assignedConsultantId === consultant.id);
-        const referralsForConsultant = leads.filter((lead) => lead.referredByConsultantId === consultant.id);
+        const assigned = leads.filter((lead) => matchesConsultant(lead, consultant));
+        const referralsForConsultant = leads.filter((lead) => matchesConsultant(lead, consultant) && Boolean(lead.referralCode || lead.referredByConsultantId));
         const convertedLeads = assigned.filter((lead) => lead.status === "Converted").length;
         const url = getReferralUrl(settings.websiteBaseUrl, consultant.referralCode);
         return <tr key={consultant.id}><td><div className={styles.studentCell}><Avatar name={consultant.name} size="sm" /><span><strong className={styles.studentName}>{consultant.name}</strong><small>{referralsForConsultant.length} referral leads</small></span></div></td><td><span className={styles.contactStack}>{consultant.email}<small>{consultant.phone}</small></span></td><td><button type="button" className={styles.codeCopy} title={`Copy referral link for ${consultant.name}`} aria-label={`Copy referral link for ${consultant.name}`} onClick={() => void copyReferralLink(consultant.id, url)}><code>{consultant.referralCode}</code><AdminIcon name={copiedCode === consultant.id ? "check" : "copy"} size={13} /></button></td><td><Badge dot>{consultant.status}</Badge></td><td>{assigned.length}</td><td>{convertedLeads}</td><td><span className={styles.rateCell}>{percent(convertedLeads, assigned.length)}</span></td><td>{formatDate(consultant.createdAt)}</td><td><div className={styles.rowActions}><button type="button" className={styles.rowTextAction} onClick={() => setViewing(consultant)}>View</button><button type="button" className={styles.rowTextAction} onClick={() => { setEditing(consultant); setShowEditor(true); }}>Edit</button><button type="button" className={`${styles.rowTextAction} ${consultant.status === "Active" ? styles.rowActionDanger : styles.rowActionSuccess}`} onClick={() => setConsultantStatus(consultant.id, consultant.status === "Active" ? "Inactive" : "Active")}>{consultant.status === "Active" ? "Deactivate" : "Activate"}</button></div></td></tr>;

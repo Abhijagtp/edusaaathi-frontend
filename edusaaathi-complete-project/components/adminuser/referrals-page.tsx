@@ -5,6 +5,7 @@ import Link from "next/link";
 import { downloadCsvFile, getConsultantName, getReferralUrl } from "@/lib/adminuser/mock-data";
 import { formatDate, percent } from "@/lib/adminuser/format";
 import { useAdminData } from "./admin-data-provider";
+import { matchesConsultant } from "./consultants-page";
 import { AdminButton, Avatar, Badge, EmptyState, PageHeading, Panel, SearchField } from "./admin-ui";
 import { AdminIcon } from "./admin-icon";
 import styles from "./admin.module.css";
@@ -22,10 +23,10 @@ export function ReferralsPage() {
   const [copiedId, setCopiedId] = useState("");
   const matchingRefs = useMemo(() => referrals.filter((referral) => {
     const lead = leads.find((entry) => entry.id === referral.leadId);
-    const consultant = consultants.find((entry) => entry.id === referral.consultantId);
+    const consultant = consultants.find((entry) => entry.id === referral.consultantId || (entry as any).userId === referral.consultantId || (entry.referralCode && entry.referralCode.toLowerCase() === referral.consultantId.toLowerCase()));
     const term = search.trim().toLowerCase();
     const text = `${lead?.studentName ?? ""} ${lead?.course ?? ""} ${consultant?.name ?? ""} ${consultant?.referralCode ?? ""} ${referral.campaign}`.toLowerCase();
-    return (consultantFilter === "all" || referral.consultantId === consultantFilter) && (!dateFrom || referral.createdAt.slice(0, 10) >= dateFrom) && (!dateTo || referral.createdAt.slice(0, 10) <= dateTo) && (!term || text.includes(term));
+    return (consultantFilter === "all" || referral.consultantId === consultantFilter || consultant?.id === consultantFilter) && (!dateFrom || referral.createdAt.slice(0, 10) >= dateFrom) && (!dateTo || referral.createdAt.slice(0, 10) <= dateTo) && (!term || text.includes(term));
   }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [referrals, leads, consultants, search, dateFrom, dateTo, consultantFilter]);
   const filteredConsultants = consultants.filter((consultant) => consultantFilter === "all" || consultant.id === consultantFilter).filter((consultant) => !search.trim() || `${consultant.name} ${consultant.referralCode}`.toLowerCase().includes(search.trim().toLowerCase()));
   const totalClicks = consultants.reduce((sum, item) => sum + item.referralClicks, 0);
@@ -41,7 +42,7 @@ export function ReferralsPage() {
   function exportReferrals() {
     const rows = [["Student", "Course", "Referring consultant", "Referral code", "Campaign", "Lead status", "Currently assigned to", "Referred date"], ...matchingRefs.map((referral) => {
       const lead = leads.find((entry) => entry.id === referral.leadId);
-      const consultant = consultants.find((entry) => entry.id === referral.consultantId);
+      const consultant = consultants.find((entry) => entry.id === referral.consultantId || (entry as any).userId === referral.consultantId || (entry.referralCode && entry.referralCode.toLowerCase() === referral.consultantId.toLowerCase()));
       return [lead?.studentName ?? "Lead removed", lead?.course ?? "", consultant?.name ?? "Former consultant", consultant?.referralCode ?? "", referral.campaign, lead?.status ?? "", getConsultantName(consultants, lead?.assignedConsultantId), referral.createdAt];
     })];
     downloadCsv(rows, "referral-attributions.csv");
@@ -52,7 +53,7 @@ export function ReferralsPage() {
     <div className={styles.fourStatsGrid}><div className={styles.summaryStat}><span>Link clicks</span><strong>{totalClicks.toLocaleString("en-IN")}</strong><small>Illustrative sample counters</small></div><div className={styles.summaryStat}><span>Attributed leads</span><strong>{totalAttributed}</strong><small>In the selected date range</small></div><div className={styles.summaryStat}><span>Referral conversions</span><strong>{convertedReferrals}</strong><small>{percent(convertedReferrals, totalAttributed)} of selected attributions</small></div><div className={styles.summaryStat}><span>Active consultants</span><strong>{activePartners}</strong><small>Historical attribution is retained</small></div></div>
     <Panel title="Referral link performance" subtitle="Unique public links by consultant" action={<div className={styles.panelFilters}><SearchField value={search} onChange={setSearch} placeholder="Search name or code" label="Search referral links" /><label className={styles.filterControl}><span className={styles.srOnly}>Filter consultant</span><select value={consultantFilter} onChange={(event) => setConsultantFilter(event.target.value)}><option value="all">All consultants</option>{consultants.map((consultant) => <option key={consultant.id} value={consultant.id}>{consultant.name}</option>)}</select></label></div>}>
       {!hydrated ? <div className={styles.tableLoading}>Loading referral data…</div> : filteredConsultants.length ? <div className={styles.tableViewport}><table className={styles.dataTable}><thead><tr><th>Consultant</th><th>Referral code</th><th>Referral link</th><th>Sample clicks</th><th>Attributed leads</th><th>Converted</th><th>Conversion</th><th>Status</th></tr></thead><tbody>{filteredConsultants.map((consultant) => {
-        const codeLeads = leads.filter((lead) => lead.referredByConsultantId === consultant.id);
+        const codeLeads = leads.filter((lead) => matchesConsultant(lead, consultant) && Boolean(lead.referralCode || lead.referredByConsultantId));
         const codeConversions = codeLeads.filter((lead) => lead.status === "Converted").length;
         const url = getReferralUrl(settings.websiteBaseUrl, consultant.referralCode);
         return <tr key={consultant.id}><td><div className={styles.studentCell}><Avatar name={consultant.name} size="sm" /><span><Link href="/adminuser/consultants" className={styles.studentName}>{consultant.name}</Link><small>{consultant.email}</small></span></div></td><td><code className={styles.referralCode}>{consultant.referralCode}</code></td><td><div className={styles.linkCell}><a href={url} target="_blank" rel="noreferrer" title="Open public referral link">{url}</a><button type="button" aria-label={`Copy referral link for ${consultant.name}`} onClick={() => void copyLink(consultant.id, url)}><AdminIcon name={copiedId === consultant.id ? "check" : "copy"} size={14} /></button></div></td><td><strong>{consultant.referralClicks.toLocaleString("en-IN")}</strong></td><td>{codeLeads.length}</td><td>{codeConversions}</td><td><span className={styles.rateCell}>{percent(codeConversions, codeLeads.length)}</span></td><td><Badge dot>{consultant.status}</Badge></td></tr>;

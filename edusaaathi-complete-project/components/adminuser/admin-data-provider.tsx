@@ -4,13 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { SITE_URL } from "@/lib/config";
 import type { Course } from "@/lib/types";
 import { slugify } from "@/lib/format";
-import { ADMIN_STORAGE_KEY, createInitialAdminState } from "@/lib/adminuser/mock-data";
 import type { Activity, AdminSettings, AdminState, Consultant, ConsultantDraft, CourseDraft, Lead, LeadDraft, WebsiteContent } from "@/lib/adminuser/types";
 import { interceptedFetch as fetch } from "@/lib/api-client";
 
 type AdminDataValue = AdminState & {
   sourceCourses: Course[];
   hydrated: boolean;
+  loading: boolean;
+  backendOnline: boolean;
   notice: string;
   announce: (message: string) => void;
   addCourse: (draft: CourseDraft) => string;
@@ -21,6 +22,7 @@ type AdminDataValue = AdminState & {
   updateLead: (id: string, draft: LeadDraft) => void;
   deleteLead: (id: string) => void;
   refreshLeads: () => Promise<void>;
+  refreshConsultants: () => Promise<void>;
   setLeadStatus: (id: string, status: Lead["status"]) => void;
   setLeadStatuses: (ids: string[], status: Lead["status"]) => void;
   assignLeads: (ids: string[], consultantId: string | null) => void;
@@ -30,7 +32,6 @@ type AdminDataValue = AdminState & {
   setConsultantStatus: (id: string, status: "Active" | "Inactive") => void;
   saveWebsiteContent: (content: WebsiteContent) => void;
   saveSettings: (settings: AdminSettings) => void;
-  resetMockData: () => void;
 };
 
 const emptyState: AdminState = {
@@ -47,25 +48,26 @@ const emptyState: AdminState = {
 
 const AdminDataContext = createContext<AdminDataValue | null>(null);
 
-function id(prefix: string): string {
+function uid(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function activity(type: Activity["type"], title: string, description: string, leadId: string | null = null, consultantId: string | null = null): Activity {
-  return { id: id("activity"), leadId, consultantId, type, title, description, createdAt: new Date().toISOString(), actor: "EduSaathi Admin" };
+function activityEntry(type: Activity["type"], title: string, description: string, leadId: string | null = null, consultantId: string | null = null): Activity {
+  return { id: uid("activity"), leadId, consultantId, type, title, description, createdAt: new Date().toISOString(), actor: "EduSaathi Admin" };
 }
 
 function sanitizeLead(l: any): Lead {
   return {
-    id: String(l.id || id("lead")),
+    id: String(l.id || uid("lead")),
     studentName: l.studentName || l.fullName || l.full_name || "Unnamed Student",
     phone: l.phone || l.mobile || l.mobile_number || "",
     email: l.email || "",
     course: l.course || l.courseName || l.course_name || l.course_interest || "General Inquiry",
-    source: l.source || "Website",
-    sourcePage: l.sourcePage || (l.city ? `City: ${l.city}` : undefined),
-    referredByConsultantId: l.referredByConsultantId ? String(l.referredByConsultantId) : null,
-    assignedConsultantId: l.assignedConsultantId ? String(l.assignedConsultantId) : null,
+    source: (l.referral_code || l.referralCode || (typeof l.source === "string" && l.source.toLowerCase().includes("referral"))) ? "Consultant referral" : (l.source || "Website"),
+    sourcePage: l.sourcePage || (l.city ? `City: ${l.city}` : "Website Form"),
+    referredByConsultantId: l.referredByConsultantId ? String(l.referredByConsultantId) : (l.assigned_consultant ? String(l.assigned_consultant) : null),
+    assignedConsultantId: l.assignedConsultantId ? String(l.assignedConsultantId) : (l.assigned_consultant ? String(l.assigned_consultant) : null),
+    referralCode: l.referralCode || l.referral_code || null,
     status: l.status || "New",
     notes: Array.isArray(l.notes) ? l.notes : [],
     lastContactedAt: l.lastContactedAt || null,
@@ -76,33 +78,18 @@ function sanitizeLead(l: any): Lead {
 export function AdminDataProvider({ children, initialCourses = [] }: { children: React.ReactNode; initialCourses?: Course[] }) {
   const [state, setState] = useState<AdminState>(emptyState);
   const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [backendOnline, setBackendOnline] = useState(true);
   const [notice, setNotice] = useState("");
 
+  // ──── Initial backend sync on mount ────
   useEffect(() => {
-    const initialState = createInitialAdminState(initialCourses);
-    let restored: AdminState | null = null;
-    try {
-      const raw = window.localStorage.getItem(ADMIN_STORAGE_KEY);
-      if (raw) restored = JSON.parse(raw) as AdminState;
-    } catch {
-      restored = null;
-    }
-    setState(restored?.leads && restored.consultants
-      ? {
-          ...initialState,
-          ...restored,
-          leads: Array.isArray(restored.leads) ? restored.leads.map(sanitizeLead) : initialState.leads,
-          courses: Array.isArray(restored.courses) ? restored.courses : initialCourses
-        }
-      : initialState);
-    setHydrated(true);
-  }, [initialCourses]);
+    let cancelled = false;
 
-  // Synchronize live data from Django Backend APIs
-  useEffect(() => {
-    if (!hydrated) return;
+    async function loadFromBackend() {
+      setLoading(true);
+      let anySuccess = false;
 
-    async function syncBackendData() {
       try {
         const [leadsRes, consultantsRes, coursesRes] = await Promise.allSettled([
           fetch("/api/admin/leads").then((r) => r.ok ? r.json() : null),
@@ -110,30 +97,45 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
           fetch("/api/admin/courses").then((r) => r.ok ? r.json() : null),
         ]);
 
-        const liveLeads = leadsRes.status === "fulfilled" && Array.isArray(leadsRes.value?.leads) ? leadsRes.value.leads.map(sanitizeLead) : null;
-        const liveConsultants = consultantsRes.status === "fulfilled" && consultantsRes.value?.consultants?.length ? consultantsRes.value.consultants : null;
-        const liveCourses = coursesRes.status === "fulfilled" && coursesRes.value?.courses?.length ? coursesRes.value.courses : null;
+        if (cancelled) return;
+
+        const liveLeads = leadsRes.status === "fulfilled" && Array.isArray(leadsRes.value?.leads)
+          ? leadsRes.value.leads.map(sanitizeLead) : null;
+        const liveConsultants = consultantsRes.status === "fulfilled" && Array.isArray(consultantsRes.value?.consultants)
+          ? consultantsRes.value.consultants : null;
+        const liveCourses = coursesRes.status === "fulfilled" && Array.isArray(coursesRes.value?.courses)
+          ? coursesRes.value.courses : null;
 
         if (liveLeads || liveConsultants || liveCourses) {
-          setState((curr) => ({
-            ...curr,
-            leads: liveLeads && liveLeads.length > 0 ? liveLeads : curr.leads,
-            consultants: liveConsultants && liveConsultants.length > 0 ? liveConsultants : curr.consultants,
-            courses: liveCourses && liveCourses.length > 0 ? liveCourses : curr.courses,
-          }));
+          anySuccess = true;
         }
+
+        setState((curr) => ({
+          ...curr,
+          leads: liveLeads ?? [],
+          consultants: liveConsultants ?? [],
+          courses: liveCourses ?? initialCourses,
+        }));
+
+        setBackendOnline(anySuccess);
       } catch {
-        // Fallback to stored state
+        setBackendOnline(false);
+        // Start with just the courses from SSR, empty leads/consultants
+        setState((curr) => ({
+          ...curr,
+          courses: initialCourses,
+        }));
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setHydrated(true);
+        }
       }
     }
 
-    syncBackendData();
-  }, [hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try { window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(state)); } catch { /* Local browser storage */ }
-  }, [state, hydrated]);
+    loadFromBackend();
+    return () => { cancelled = true; };
+  }, [initialCourses]);
 
   useEffect(() => {
     if (!notice) return;
@@ -143,24 +145,33 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
 
   const announce = useCallback((message: string) => setNotice(message), []);
 
+  // ──── Course CRUD ────
   const addCourse = useCallback((draft: CourseDraft) => {
     const slug = slugify(draft.slug || draft.name);
     if (!slug) throw new Error("Add a valid course name and URL slug.");
     if (state.courses.some((course) => course.slug === slug)) throw new Error("A course with this URL slug already exists.");
-    const courseId = id("course");
+    const courseId = uid("course");
     const course: Course = { ...draft, id: courseId, slug, updatedAt: new Date().toISOString() };
-    
-    // Call backend API
+
     fetch("/api/admin/courses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draft),
+    }).then((res) => {
+      if (res.ok) return res.json();
+    }).then((data) => {
+      if (data?.course) {
+        setState((curr) => ({
+          ...curr,
+          courses: curr.courses.map((c) => c.id === courseId ? { ...c, ...data.course, id: data.course.id || courseId } : c),
+        }));
+      }
     }).catch(() => null);
 
     setState((current) => ({
       ...current,
       courses: [course, ...current.courses],
-      activities: [activity("course", "Course added", `${course.name} was added to the catalog.`), ...current.activities],
+      activities: [activityEntry("course", "Course added", `${course.name} was added to the catalog.`), ...current.activities],
     }));
     announce("Course added successfully.");
     return courseId;
@@ -170,7 +181,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
     const slug = slugify(draft.slug || draft.name);
     if (!slug) throw new Error("Add a valid course name and URL slug.");
     if (state.courses.some((course) => course.id !== courseId && course.slug === slug)) throw new Error("A course with this URL slug already exists.");
-    
+
     fetch(`/api/admin/courses/${courseId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -184,7 +195,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       return {
         ...current,
         courses: current.courses.map((course) => course.id === courseId ? updated : course),
-        activities: [activity("course", "Course updated", `${updated.name} was updated.`), ...current.activities],
+        activities: [activityEntry("course", "Course updated", `${updated.name} was updated.`), ...current.activities],
       };
     });
     announce("Course updated successfully.");
@@ -203,7 +214,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       return {
         ...current,
         courses: current.courses.map((item) => item.id === courseId ? { ...item, published, updatedAt: new Date().toISOString() } : item),
-        activities: [activity("course", published ? "Course marked published" : "Course moved to draft", `${course.name} publication status updated.`), ...current.activities],
+        activities: [activityEntry("course", published ? "Course marked published" : "Course moved to draft", `${course.name} publication status updated.`), ...current.activities],
       };
     });
     announce(published ? "Course marked published." : "Course moved to draft.");
@@ -220,14 +231,15 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
     setState((current) => ({
       ...current,
       courses: current.courses.filter((course) => course.id !== courseId),
-      activities: [activity("course", "Course removed", `${existing.name} was removed.`), ...current.activities],
+      activities: [activityEntry("course", "Course removed", `${existing.name} was removed.`), ...current.activities],
     }));
     announce("Course removed.");
   }, [announce, state.courses]);
 
+  // ──── Lead CRUD ────
   const addLead = useCallback((draft: LeadDraft) => {
     const now = new Date().toISOString();
-    const leadId = id("lead");
+    const leadId = uid("lead");
     const newLead: Lead = {
       ...draft,
       id: leadId,
@@ -240,19 +252,23 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draft),
+    }).then((res) => {
+      if (res.ok) return res.json();
+    }).then((data) => {
+      if (data?.lead) {
+        const synced = sanitizeLead(data.lead);
+        setState((curr) => ({
+          ...curr,
+          leads: curr.leads.map((l) => l.id === leadId ? { ...synced, id: synced.id || leadId } : l),
+        }));
+      }
     }).catch(() => null);
 
-    setState((current) => {
-      const referral = newLead.referredByConsultantId ? [{
-        id: id("referral"), leadId, consultantId: newLead.referredByConsultantId, createdAt: now, campaign: "Admin entered referral",
-      }] : [];
-      return {
-        ...current,
-        leads: [newLead, ...current.leads],
-        referrals: [...referral, ...current.referrals],
-        activities: [activity("lead-created", "Lead created", `${newLead.studentName} was added to the lead list.`, leadId, newLead.assignedConsultantId), ...current.activities],
-      };
-    });
+    setState((current) => ({
+      ...current,
+      leads: [newLead, ...current.leads],
+      activities: [activityEntry("lead-created", "Lead created", `${newLead.studentName} was added to the lead list.`, leadId, newLead.assignedConsultantId), ...current.activities],
+    }));
     announce("Lead saved.");
     return leadId;
   }, [announce]);
@@ -268,15 +284,10 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       const existing = current.leads.find((lead) => lead.id === leadId);
       if (!existing) return current;
       const updated: Lead = { ...existing, ...draft, id: existing.id, createdAt: existing.createdAt, notes: existing.notes };
-      let referrals = current.referrals;
-      if (existing.referredByConsultantId !== updated.referredByConsultantId) {
-        referrals = referrals.filter((referral) => referral.leadId !== leadId);
-        if (updated.referredByConsultantId) referrals = [{ id: id("referral"), leadId, consultantId: updated.referredByConsultantId, createdAt: new Date().toISOString(), campaign: "Attribution updated" }, ...referrals];
-      }
       const nextActivities = existing.assignedConsultantId !== updated.assignedConsultantId
-        ? [activity("assigned", "Lead reassigned", `${updated.studentName} was reassigned.`, leadId, updated.assignedConsultantId), ...current.activities]
+        ? [activityEntry("assigned", "Lead reassigned", `${updated.studentName} was reassigned.`, leadId, updated.assignedConsultantId), ...current.activities]
         : current.activities;
-      return { ...current, leads: current.leads.map((lead) => lead.id === leadId ? updated : lead), referrals, activities: nextActivities };
+      return { ...current, leads: current.leads.map((lead) => lead.id === leadId ? updated : lead), activities: nextActivities };
     });
     announce("Lead updated.");
   }, [announce]);
@@ -291,9 +302,8 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       return {
         ...current,
         leads: current.leads.filter((lead) => lead.id !== leadId),
-        referrals: current.referrals.filter((referral) => referral.leadId !== leadId),
         activities: [
-          activity("lead-created", "Lead deleted", `${existing?.studentName || "Lead"} was removed from the database.`),
+          activityEntry("lead-created", "Lead deleted", `${existing?.studentName || "Lead"} was removed from the database.`),
           ...current.activities,
         ],
       };
@@ -312,11 +322,29 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
             ...curr,
             leads: cleanLeads,
           }));
-          announce(`Synced ${cleanLeads.length} leads with PostgreSQL.`);
+          announce(`Synced ${cleanLeads.length} leads from database.`);
         }
       }
     } catch {
-      // ignore
+      announce("Failed to sync leads. Backend may be offline.");
+    }
+  }, [announce]);
+
+  const refreshConsultants = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/consultants", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.consultants)) {
+          setState((curr) => ({
+            ...curr,
+            consultants: data.consultants,
+          }));
+          announce(`Synced ${data.consultants.length} consultants from database.`);
+        }
+      }
+    } catch {
+      announce("Failed to sync consultants. Backend may be offline.");
     }
   }, [announce]);
 
@@ -333,7 +361,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       return {
         ...current,
         leads: current.leads.map((item) => item.id === leadId ? { ...item, status } : item),
-        activities: [activity("status-changed", "Lead status changed", `${lead.studentName} moved from ${lead.status} to ${status}.`, leadId, lead.assignedConsultantId), ...current.activities],
+        activities: [activityEntry("status-changed", "Lead status changed", `${lead.studentName} moved from ${lead.status} to ${status}.`, leadId, lead.assignedConsultantId), ...current.activities],
       };
     });
     announce(`Lead status changed to ${status}.`);
@@ -343,8 +371,8 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
     if (!ids.length) return;
     const selected = new Set(ids);
 
-    ids.forEach((id) => {
-      fetch(`/api/admin/leads/${id}`, {
+    ids.forEach((leadId) => {
+      fetch(`/api/admin/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -354,7 +382,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
     setState((current) => {
       const changedLeads = current.leads.filter((lead) => selected.has(lead.id) && lead.status !== status);
       if (!changedLeads.length) return current;
-      const changes = changedLeads.map((lead) => activity("status-changed", "Lead status changed", `${lead.studentName} moved from ${lead.status} to ${status}.`, lead.id, lead.assignedConsultantId));
+      const changes = changedLeads.map((lead) => activityEntry("status-changed", "Lead status changed", `${lead.studentName} moved from ${lead.status} to ${status}.`, lead.id, lead.assignedConsultantId));
       return {
         ...current,
         leads: current.leads.map((lead) => selected.has(lead.id) ? { ...lead, status } : lead),
@@ -368,8 +396,8 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
     if (!ids.length) return;
     const selected = new Set(ids);
 
-    ids.forEach((id) => {
-      fetch(`/api/admin/leads/${id}`, {
+    ids.forEach((leadId) => {
+      fetch(`/api/admin/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assignedConsultantId: consultantId }),
@@ -381,7 +409,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
       return {
         ...current,
         leads: current.leads.map((lead) => selected.has(lead.id) ? { ...lead, assignedConsultantId: consultantId } : lead),
-        activities: first ? [activity("assigned", "Leads reassigned", `${ids.length} lead${ids.length === 1 ? "" : "s"} assigned to a consultant.`, null, consultantId), ...current.activities] : current.activities,
+        activities: first ? [activityEntry("assigned", "Leads reassigned", `${ids.length} lead${ids.length === 1 ? "" : "s"} assigned to a consultant.`, null, consultantId), ...current.activities] : current.activities,
       };
     });
     announce(`${ids.length} lead${ids.length === 1 ? "" : "s"} reassigned.`);
@@ -390,33 +418,35 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
   const addLeadNote = useCallback((leadId: string, text: string) => {
     const cleanText = text.trim();
     if (!cleanText) return;
-    const note = { id: id("note"), text: cleanText, createdAt: new Date().toISOString(), author: "Admin" };
+    const note = { id: uid("note"), text: cleanText, createdAt: new Date().toISOString(), author: "Admin" };
 
+    // Send note to backend
     fetch(`/api/admin/leads/${leadId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ note: cleanText }),
     }).catch(() => null);
 
+    // Optimistically add note to local state
     setState((current) => {
       const lead = current.leads.find((item) => item.id === leadId);
       if (!lead) return current;
       return {
         ...current,
         leads: current.leads.map((item) => item.id === leadId ? { ...item, notes: [note, ...item.notes] } : item),
-        activities: [activity("note-added", "Note added", `${lead.studentName}: ${cleanText}`, leadId, lead.assignedConsultantId), ...current.activities],
+        activities: [activityEntry("note-added", "Note added", `${lead.studentName}: ${cleanText}`, leadId, lead.assignedConsultantId), ...current.activities],
       };
     });
     announce("Note added to lead.");
   }, [announce]);
 
+  // ──── Consultant CRUD ────
   const addConsultant = useCallback(async (draft: ConsultantDraft) => {
     const code = draft.referralCode.trim().toUpperCase();
     if (state.consultants.some((consultant) => consultant.referralCode.toLowerCase() === code.toLowerCase())) throw new Error("That referral code is already in use.");
-    const consultantId = id("consultant");
-    const consultant: Consultant = { ...draft, referralCode: code, id: consultantId, referralClicks: 0, createdAt: new Date().toISOString() };
 
     let initialPassword = draft.password || undefined;
+    let backendConsultant: any = null;
 
     try {
       const res = await fetch("/api/admin/consultants", {
@@ -434,24 +464,30 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
 
       if (res.ok) {
         const data = await res.json();
-        if (data.initialPassword) {
-          initialPassword = data.initialPassword;
-        }
-        if (data.consultant) {
-          setState((curr) => ({
-            ...curr,
-            consultants: curr.consultants.map((c) => c.id === consultantId ? { ...c, ...data.consultant } : c),
-          }));
-        }
+        if (data.initialPassword) initialPassword = data.initialPassword;
+        if (data.consultant) backendConsultant = data.consultant;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create consultant in backend.");
       }
-    } catch {
-      // Backend sync fallback
+    } catch (e: any) {
+      throw new Error(e?.message || "Failed to create consultant. Backend may be offline.");
     }
+
+    const consultantId = backendConsultant?.id ? String(backendConsultant.id) : uid("consultant");
+    const consultant: Consultant = {
+      ...draft,
+      ...(backendConsultant || {}),
+      referralCode: backendConsultant?.referralCode || code,
+      id: consultantId,
+      referralClicks: backendConsultant?.referralClicks || 0,
+      createdAt: backendConsultant?.createdAt || new Date().toISOString(),
+    };
 
     setState((current) => ({
       ...current,
       consultants: [consultant, ...current.consultants],
-      activities: [activity("consultant", "Consultant added", `${consultant.name} was added.`, null, consultantId), ...current.activities]
+      activities: [activityEntry("consultant", "Consultant added", `${consultant.name} was added.`, null, consultantId), ...current.activities],
     }));
     announce(`Consultant ${consultant.name} added successfully.`);
     return { id: consultantId, initialPassword };
@@ -460,7 +496,7 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
   const updateConsultant = useCallback((consultantId: string, draft: ConsultantDraft) => {
     const code = draft.referralCode.trim().toUpperCase();
     if (state.consultants.some((consultant) => consultant.id !== consultantId && consultant.referralCode.toLowerCase() === code.toLowerCase())) throw new Error("That referral code is already in use.");
-    
+
     fetch(`/api/admin/consultants/${consultantId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -481,31 +517,48 @@ export function AdminDataProvider({ children, initialCourses = [] }: { children:
     setState((current) => {
       const consultant = current.consultants.find((item) => item.id === consultantId);
       if (!consultant) return current;
-      return { ...current, consultants: current.consultants.map((item) => item.id === consultantId ? { ...item, status } : item), activities: [activity("consultant", `Consultant ${status.toLowerCase()}`, `${consultant.name} is now ${status.toLowerCase()}.`, null, consultantId), ...current.activities] };
+      return { ...current, consultants: current.consultants.map((item) => item.id === consultantId ? { ...item, status } : item), activities: [activityEntry("consultant", `Consultant ${status.toLowerCase()}`, `${consultant.name} is now ${status.toLowerCase()}.`, null, consultantId), ...current.activities] };
     });
     announce(`Consultant marked ${status.toLowerCase()}.`);
   }, [announce]);
 
+  // ──── Settings & Content ────
   const saveWebsiteContent = useCallback((content: WebsiteContent) => {
-    setState((current) => ({ ...current, websiteContent: content, activities: [activity("content", "Website content saved", "Homepage and enquiry form settings were updated."), ...current.activities] }));
+    setState((current) => ({ ...current, websiteContent: content, activities: [activityEntry("content", "Website content saved", "Homepage and enquiry form settings were updated."), ...current.activities] }));
     announce("Website content saved.");
   }, [announce]);
 
   const saveSettings = useCallback((settings: AdminSettings) => {
-    setState((current) => ({ ...current, settings, activities: [activity("settings", "Admin settings saved", "Settings were updated."), ...current.activities] }));
+    setState((current) => ({ ...current, settings, activities: [activityEntry("settings", "Admin settings saved", "Settings were updated."), ...current.activities] }));
     announce("Settings saved.");
   }, [announce]);
 
-  const resetMockData = useCallback(() => {
-    setState(createInitialAdminState(initialCourses));
-    announce("Demo data has been reset.");
-  }, [announce, initialCourses]);
+  const derivedReferrals = useMemo(() => {
+    return state.leads
+      .filter((l) => Boolean(l.referralCode || l.source === "Consultant referral" || l.referredByConsultantId))
+      .map((l) => {
+        const matchingConsultant = state.consultants.find((c) =>
+          Boolean(l.referralCode && c.referralCode && l.referralCode.trim().toUpperCase() === c.referralCode.trim().toUpperCase())
+          || Boolean(c.userId && l.assignedConsultantId === c.userId)
+          || Boolean(c.id && l.assignedConsultantId === c.id)
+        );
+        return {
+          id: `ref-${l.id}`,
+          leadId: l.id,
+          consultantId: matchingConsultant?.id || l.referredByConsultantId || l.assignedConsultantId || "",
+          campaign: l.referralCode ? `Referral (${l.referralCode})` : "Direct Referral",
+          createdAt: l.createdAt,
+        };
+      });
+  }, [state.leads, state.consultants]);
 
   const value = useMemo<AdminDataValue>(() => ({
-    ...state, sourceCourses: initialCourses, hydrated, notice, announce, addCourse, updateCourse, setCoursePublished, deleteCourse, addLead, updateLead, deleteLead, refreshLeads, setLeadStatus, setLeadStatuses, assignLeads, addLeadNote,
+    ...state,
+    referrals: derivedReferrals.length ? derivedReferrals : state.referrals,
+    sourceCourses: initialCourses, hydrated, loading, backendOnline, notice, announce, addCourse, updateCourse, setCoursePublished, deleteCourse, addLead, updateLead, deleteLead, refreshLeads, refreshConsultants, setLeadStatus, setLeadStatuses, assignLeads, addLeadNote,
     addConsultant, updateConsultant, setConsultantStatus,
-    saveWebsiteContent, saveSettings, resetMockData,
-  }), [state, initialCourses, hydrated, notice, announce, addCourse, updateCourse, setCoursePublished, deleteCourse, addLead, updateLead, deleteLead, refreshLeads, setLeadStatus, setLeadStatuses, assignLeads, addLeadNote, addConsultant, updateConsultant, setConsultantStatus, saveWebsiteContent, saveSettings, resetMockData]);
+    saveWebsiteContent, saveSettings,
+  }), [state, derivedReferrals, initialCourses, hydrated, loading, backendOnline, notice, announce, addCourse, updateCourse, setCoursePublished, deleteCourse, addLead, updateLead, deleteLead, refreshLeads, refreshConsultants, setLeadStatus, setLeadStatuses, assignLeads, addLeadNote, addConsultant, updateConsultant, setConsultantStatus, saveWebsiteContent, saveSettings]);
 
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }

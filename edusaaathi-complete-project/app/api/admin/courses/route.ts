@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { hasAdminSession } from "@/lib/auth";
 import { backendFetch } from "@/lib/backend-client";
@@ -124,5 +125,11 @@ export async function POST(request: Request) {
     updatedAt: new Date().toISOString(),
   };
   await saveCourses([...courses.filter((c) => c.slug !== slug), course]);
+
+  // Purge Next.js full-route cache so the public site shows the new course immediately
+  revalidatePath("/");
+  revalidatePath("/courses");
+  revalidatePath(`/courses/${slug}`);
+
   return NextResponse.json({ course }, { status: 201 });
 }

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { hasAdminSession } from "@/lib/auth";
 import { backendFetch } from "@/lib/backend-client";
@@ -130,6 +131,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Course not found." }, { status: 404 });
   }
 
+  // Purge Next.js full-route cache so the public site reflects the update immediately
+  revalidatePath("/");
+  revalidatePath("/courses");
+  revalidatePath(`/courses/${updatedCourse.slug}`);
+
   return NextResponse.json({ course: updatedCourse, liveSynced: backendOk });
 }
 
@@ -147,5 +153,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   // 2. Remove from local store cache
   await saveCourses(courses.filter((course) => course.id !== id && course.slug !== id));
+
+  // Purge Next.js full-route cache so the deleted course disappears from the public site
+  revalidatePath("/");
+  revalidatePath("/courses");
+  if (existing?.slug) revalidatePath(`/courses/${existing.slug}`);
+
   return NextResponse.json({ success: true });
 }

@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 function mapBackendConsultant(c: any) {
   return {
     id: String(c.id),
+    userId: String(c.user_id || c.id),
     name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email,
     email: c.email || "",
     phone: c.phone_number || "",

@@ -1,5 +1,6 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { unstable_noStore as noStore } from "next/cache";
 import type { Course, Lead } from "@/lib/types";
 import { getBackendUrl } from "@/lib/auth";
 
@@ -49,8 +50,9 @@ function mapBackendCourse(c: any): Course {
 async function fetchBackendCourses(): Promise<Course[] | null> {
   try {
     const backendUrl = getBackendUrl();
-    const res = await fetch(`${backendUrl}/api/courses/`, {
+    const res = await fetch(`${backendUrl}/api/courses/?_t=${Date.now()}`, {
       cache: "no-store",
+      next: { revalidate: 0 },
       headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) return null;
@@ -68,8 +70,9 @@ async function fetchBackendCourses(): Promise<Course[] | null> {
 async function fetchBackendCourseBySlug(slug: string): Promise<Course | null> {
   try {
     const backendUrl = getBackendUrl();
-    const res = await fetch(`${backendUrl}/api/courses/${slug}/`, {
+    const res = await fetch(`${backendUrl}/api/courses/${slug}/?_t=${Date.now()}`, {
       cache: "no-store",
+      next: { revalidate: 0 },
       headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) return null;
@@ -103,6 +106,9 @@ async function writeJson<T>(filePath: string, value: T): Promise<void> {
 }
 
 export async function getCourses(includeUnpublished = false): Promise<Course[]> {
+  // Opt out of Next.js Data Cache — every call reads fresh data
+  noStore();
+
   // 1. Fetch live courses from Django PostgreSQL backend
   const liveCourses = await fetchBackendCourses();
   if (liveCourses && liveCourses.length > 0) {
@@ -131,6 +137,9 @@ export async function getCourses(includeUnpublished = false): Promise<Course[]> 
 }
 
 export async function getCourseBySlug(slug: string, includeUnpublished = false): Promise<Course | null> {
+  // Opt out of Next.js Data Cache — every call reads fresh data
+  noStore();
+
   // 1. Fetch direct from backend
   const liveCourse = await fetchBackendCourseBySlug(slug);
   if (liveCourse && (includeUnpublished || liveCourse.published)) {
