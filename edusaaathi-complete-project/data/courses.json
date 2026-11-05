@@ -242,19 +242,23 @@
     "updatedAt": "2026-10-28T05:24:22.247789Z"
   },
   {
-    "id": "07ad1a99-5dbc-4545-b892-9a872da47806",
-    "slug": "new-course-test",
-    "name": "new course test",
-    "shortDescription": "des",
-    "description": "des",
+    "id": "15",
+    "slug": "course-example",
+    "name": "Course Example",
+    "shortDescription": "Dess",
+    "description": "Des",
     "duration": "3 years",
-    "eligibility": "des",
+    "eligibility": "Yes",
     "fees": null,
-    "highlights": [],
-    "admissionInfo": "des",
+    "highlights": [
+      "Comprehensive curriculum",
+      "Industry recognized",
+      "Career guidance"
+    ],
+    "admissionInfo": "Opened",
     "image": null,
     "imageAlt": null,
     "published": true,
-    "updatedAt": "2026-10-29T12:32:42.517Z"
+    "updatedAt": "2026-10-31T06:44:25.315Z"
   }
 ]

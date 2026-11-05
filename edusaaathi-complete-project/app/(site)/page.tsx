@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Hero } from "@/components/hero";
+import { ServiceCards } from "@/components/service-cards";
 import { CourseCard } from "@/components/course-card";
 import { FaqList } from "@/components/faq-list";
 import { EnquiryTrigger } from "@/components/enquiry-trigger";
@@ -11,12 +12,12 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/config";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Find the Right Course. Build Your Future.",
-  description: SITE_DESCRIPTION,
+  title: "Not Sure What to Study Next? Let's Figure It Out Together | Edusaaathi",
+  description: "Get free counselling with total enquiry solution for all courses and university or board selection — all in one place Edusaathi.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Find the Right Course. Build Your Future. | Edusaaathi",
-    description: SITE_DESCRIPTION,
+    title: "Not Sure What to Study Next? Let's Figure It Out Together | Edusaaathi",
+    description: "Get free counselling with total enquiry solution for all courses and university or board selection — all in one place Edusaathi.",
     url: SITE_URL,
   },
 };
@@ -35,13 +36,14 @@ export default async function HomePage() {
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE_URL,
-    description: SITE_DESCRIPTION,
+    description: "Get free counselling with total enquiry solution for all courses and university or board selection — all in one place Edusaathi.",
   };
 
   return (
     <main id="main-content">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <Hero />
+      <ServiceCards />
 
       <section id="courses" className="course-section section-pad" aria-labelledby="courses-title">
         <div className="page-wrap">

@@ -47,14 +47,15 @@ function mapBackendCourse(c: any): Course {
 export async function GET() {
   if (!(await hasAdminSession())) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-  // 1. Attempt to fetch from Django backend
-  const backendRes = await backendFetch("/api/courses/");
-  if (backendRes.ok && backendRes.data?.courses) {
-    const courses = backendRes.data.courses.map(mapBackendCourse);
+  // 1. Attempt to fetch from Django backend admin endpoint
+  const backendRes = await backendFetch("/api/admin/courses/");
+  if (backendRes.ok && (backendRes.data?.courses || backendRes.data?.results)) {
+    const rawList = backendRes.data.courses || backendRes.data.results;
+    const courses = rawList.map(mapBackendCourse);
     return NextResponse.json({ courses }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
-  // 2. Fallback to local store
+  // 2. Fallback to data store (which queries live backend with include_all=true or courses.json)
   const courses = await getCourses(true);
   return NextResponse.json({ courses }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Complete the required course fields before saving." }, { status: 400 });
   }
 
-  // Also save to Django backend
+  // Save to Django PostgreSQL backend
   const backendPayload = {
     name,
     slug,
@@ -102,14 +103,28 @@ export async function POST(request: Request) {
     published: Boolean(body.published),
   };
 
-  await backendFetch("/api/courses/", {
+  let assignedId: string = randomUUID();
+
+  // Try /api/admin/courses/ first, fallback to /api/courses/
+  let backendRes = await backendFetch("/api/admin/courses/", {
     method: "POST",
     body: JSON.stringify(backendPayload),
   }).catch(() => null);
 
+  if (!backendRes || !backendRes.ok) {
+    backendRes = await backendFetch("/api/courses/", {
+      method: "POST",
+      body: JSON.stringify(backendPayload),
+    }).catch(() => null);
+  }
+
+  if (backendRes?.ok && (backendRes.data?.course?.id || backendRes.data?.id)) {
+    assignedId = String(backendRes.data.course?.id || backendRes.data.id);
+  }
+
   const courses = await getCourses(true);
   const course: Course = {
-    id: randomUUID(),
+    id: assignedId,
     slug,
     name,
     shortDescription,
@@ -124,12 +139,13 @@ export async function POST(request: Request) {
     published: Boolean(body.published),
     updatedAt: new Date().toISOString(),
   };
-  await saveCourses([...courses.filter((c) => c.slug !== slug), course]);
+  await saveCourses([...courses.filter((c) => c.slug !== slug && c.id !== assignedId), course]);
 
-  // Purge Next.js full-route cache so the public site shows the new course immediately
+  // Purge Next.js full-route cache so public site and admin list show the course immediately
   revalidatePath("/");
   revalidatePath("/courses");
   revalidatePath(`/courses/${slug}`);
+  revalidatePath("/adminuser/courses");
 
   return NextResponse.json({ course }, { status: 201 });
 }

@@ -47,10 +47,13 @@ function mapBackendCourse(c: any): Course {
   };
 }
 
-async function fetchBackendCourses(): Promise<Course[] | null> {
+async function fetchBackendCourses(includeAll = false): Promise<Course[] | null> {
   try {
     const backendUrl = getBackendUrl();
-    const res = await fetch(`${backendUrl}/api/courses/?_t=${Date.now()}`, {
+    const endpoint = includeAll
+      ? `${backendUrl}/api/courses/?include_all=true&_t=${Date.now()}`
+      : `${backendUrl}/api/courses/?_t=${Date.now()}`;
+    const res = await fetch(endpoint, {
       cache: "no-store",
       next: { revalidate: 0 },
       headers: { "Content-Type": "application/json" },
@@ -110,22 +113,20 @@ export async function getCourses(includeUnpublished = false): Promise<Course[]> 
   noStore();
 
   // 1. Fetch live courses from Django PostgreSQL backend
-  const liveCourses = await fetchBackendCourses();
+  const liveCourses = await fetchBackendCourses(includeUnpublished);
+  const localCourses = await readJson<Course[]>(coursesPath, []);
+
+  let combinedCourses: Course[];
   if (liveCourses && liveCourses.length > 0) {
-    return liveCourses
-      .filter((course) => includeUnpublished || course.published)
-      .sort((a, b) => {
-        const aRank = featuredCourseOrder.indexOf(a.slug);
-        const bRank = featuredCourseOrder.indexOf(b.slug);
-        const normalizedA = aRank < 0 ? featuredCourseOrder.length : aRank;
-        const normalizedB = bRank < 0 ? featuredCourseOrder.length : bRank;
-        return normalizedA === normalizedB ? a.name.localeCompare(b.name) : normalizedA - normalizedB;
-      });
+    // Keep live courses from DB and merge any offline courses not yet in backend
+    const liveSlugs = new Set(liveCourses.map((c) => c.slug.toLowerCase()));
+    const pendingLocal = localCourses.filter((c) => !liveSlugs.has(c.slug.toLowerCase()));
+    combinedCourses = [...liveCourses, ...pendingLocal];
+  } else {
+    combinedCourses = localCourses;
   }
 
-  // 2. Fallback to local data/courses.json if backend is offline
-  const courses = await readJson<Course[]>(coursesPath, []);
-  return courses
+  return combinedCourses
     .filter((course) => includeUnpublished || course.published)
     .sort((a, b) => {
       const aRank = featuredCourseOrder.indexOf(a.slug);

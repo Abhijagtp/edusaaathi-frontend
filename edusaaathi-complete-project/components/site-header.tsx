@@ -111,7 +111,7 @@ export function SiteHeader() {
 
               <div className="site-nav__trust-badge">
                 <span className="site-nav__trust-dot" />
-                <span>Free Guidance • Fast Response • UGC Recognized</span>
+                <span>Free Guidance • Fast Response</span>
               </div>
             </div>
           </nav>

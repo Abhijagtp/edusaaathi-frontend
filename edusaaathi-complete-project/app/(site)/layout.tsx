@@ -1,6 +1,7 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { EnquiryPopup } from "@/components/enquiry-popup";
+import { FloatingExpertButton } from "@/components/floating-expert-button";
 
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -10,6 +11,7 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
       {children}
       <SiteFooter />
       <EnquiryPopup />
+      <FloatingExpertButton />
     </>
   );
 }
